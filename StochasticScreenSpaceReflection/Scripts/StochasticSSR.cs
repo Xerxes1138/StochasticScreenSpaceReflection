@@ -1,26 +1,24 @@
-﻿//Copyright (c) 2015, Charles Greivelding Thomas
-//All rights reserved.
-//
-//Redistribution and use in source and binary forms, with or without
-//modification, are permitted provided that the following conditions are met:
-//
-//* Redistributions of source code must retain the above copyright notice, this
-//  list of conditions and the following disclaimer.
-//
-//* Redistributions in binary form must reproduce the above copyright notice,
-//  this list of conditions and the following disclaimer in the documentation
-//  and/or other materials provided with the distribution.
-//
-//THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
-//AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
-//IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
-//DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE
-//FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
-//DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
-//SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
-//CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
-//OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
-//OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+﻿//The MIT License(MIT)
+
+//Copyright(c) 2016 Charles Greivelding Thomas
+
+//Permission is hereby granted, free of charge, to any person obtaining a copy
+//of this software and associated documentation files (the "Software"), to deal
+//in the Software without restriction, including without limitation the rights
+//to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+//copies of the Software, and to permit persons to whom the Software is
+//furnished to do so, subject to the following conditions:
+
+//The above copyright notice and this permission notice shall be included in all
+//copies or substantial portions of the Software.
+
+//THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+//IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+//FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+//AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+//LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+//OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+//SOFTWARE.
 
 using System.Collections;
 using System.Collections.Generic;
@@ -37,14 +35,7 @@ namespace cCharkes
     };
 
     [System.Serializable]
-    public enum NoiseType
-    {
-        White,
-        Blue,
-    };
-
-    [System.Serializable]
-    public enum DebugPass
+    public enum SSRDebugPass
     {
         Combine,
         Reflection,
@@ -55,13 +46,11 @@ namespace cCharkes
         RayCast,
     };
 
-    //[ImageEffectAllowedInSceneView]
-    //[ExecuteInEditMode]
     [RequireComponent(typeof(Camera))]
     [AddComponentMenu("cCharkes/Image Effects/Rendering/Stochastic Screen Space Reflection")]
     public class StochasticSSR : MonoBehaviour
     {
-        //Mesh m_quad;
+        Vector4 debug;
 
         [Header("RayCast")]
         [SerializeField]
@@ -70,11 +59,8 @@ namespace cCharkes
         [SerializeField]
         ResolutionMode rayMode = ResolutionMode.halfRes;
 
-        [SerializeField]
+        //[SerializeField]
         FilterMode rayFilterMode = FilterMode.Bilinear;
-
-        [SerializeField]
-        NoiseType noiseType = NoiseType.Blue;
 
         [Range(1, 100)]
         [SerializeField]
@@ -100,10 +86,7 @@ namespace cCharkes
         [SerializeField]
         bool useMipMap = true;
 
-        [SerializeField]
-        bool jitterMipMap = true;
-
-        [SerializeField]
+        //[SerializeField]
         int maxMipMap = 5;
 
         [Header("Temporal")]
@@ -129,16 +112,13 @@ namespace cCharkes
         [SerializeField]
         float screenFadeSize = 0.25f;
 
-        [SerializeField]
-        bool recursiveReflection = true;
-
         [Header("Debug")]
 
         [Range(0.0f, 1.0f)]
         [SerializeField]
         float smoothnessRange = 1.0f;
 
-        public DebugPass debugPass = DebugPass.Combine;
+        public SSRDebugPass debugPass = SSRDebugPass.Combine;
 
         Camera m_camera;
 
@@ -150,9 +130,9 @@ namespace cCharkes
 
         private Matrix4x4 prevViewProjectionMatrix;
 
-        RenderTexture temporalBuffer1;
+        RenderTexture temporalBuffer;
 
-        RenderTexture mainBuffer, mainBuffer1;
+        RenderTexture mainBuffer0, mainBuffer1;
         RenderTexture mipMapBuffer0, mipMapBuffer1, mipMapBuffer2;
 
         RenderBuffer[] renderBuffer = new RenderBuffer[2];
@@ -161,6 +141,7 @@ namespace cCharkes
         {
             m_camera = GetComponent<Camera>();
             m_camera.depthTextureMode = DepthTextureMode.Depth;
+            m_camera.depthTextureMode = DepthTextureMode.MotionVectors;
         }
 
         static Material m_rendererMaterial = null;
@@ -200,16 +181,16 @@ namespace cCharkes
         void ReleaseRenderTargets()
         {
 
-            if (temporalBuffer1 != null)
+            if (temporalBuffer != null)
             {
-                temporalBuffer1.Release();
-                temporalBuffer1 = null;
+                temporalBuffer.Release();
+                temporalBuffer = null;
             }
 
-            if (mainBuffer != null || mainBuffer1 != null)
+            if (mainBuffer0 != null || mainBuffer1 != null)
             {
-                mainBuffer.Release();
-                mainBuffer = null;
+                mainBuffer0.Release();
+                mainBuffer0 = null;
                 mainBuffer1.Release();
                 mainBuffer1 = null;
             }
@@ -223,27 +204,27 @@ namespace cCharkes
 
         void UpdateRenderTargets(int width, int height)
         {
-            if (temporalBuffer1 != null && temporalBuffer1.width != width)
+            if (temporalBuffer != null && temporalBuffer.width != width)
             {
                 ReleaseRenderTargets();
             }
 
-            if (temporalBuffer1 == null || !temporalBuffer1.IsCreated())
+            if (temporalBuffer == null || !temporalBuffer.IsCreated())
             {
-                temporalBuffer1 = CreateRenderTexture(width, height, 0, RenderTextureFormat.ARGBHalf, false, false, FilterMode.Bilinear);
+                temporalBuffer = CreateRenderTexture(width, height, 0, RenderTextureFormat.ARGBHalf, false, false, FilterMode.Bilinear);
 
             }
 
-            if (mainBuffer == null || !mainBuffer.IsCreated())
+            if (mainBuffer0 == null || !mainBuffer0.IsCreated())
             {
-                mainBuffer = CreateRenderTexture(width, height, 0, RenderTextureFormat.DefaultHDR, false, false, FilterMode.Bilinear);
+                mainBuffer0 = CreateRenderTexture(width, height, 0, RenderTextureFormat.DefaultHDR, false, false, FilterMode.Bilinear);
                 mainBuffer1 = CreateRenderTexture(width, height, 0, RenderTextureFormat.DefaultHDR, false, false, FilterMode.Bilinear);
             }
 
             if (mipMapBuffer0 == null || !mipMapBuffer0.IsCreated())
             {
                 mipMapBuffer0 = CreateRenderTexture(1024, 1024, 0, RenderTextureFormat.DefaultHDR, true, true, FilterMode.Bilinear); // Need to be power of two
-                mipMapBuffer1 = CreateRenderTexture(1024, 1024, 0, RenderTextureFormat.DefaultHDR, true, false, FilterMode.Bilinear); // Need to be power of two
+                mipMapBuffer1 = CreateRenderTexture(1024, 1024, 0, RenderTextureFormat.DefaultHDR, true, true, FilterMode.Bilinear); // Need to be power of two
                 mipMapBuffer2 = CreateRenderTexture(1024, 1024, 0, RenderTextureFormat.DefaultHDR, true, false, FilterMode.Bilinear); // Need to be power of two
             }
         }
@@ -280,43 +261,28 @@ namespace cCharkes
             else
                 rendererMaterial.SetInt("_Fireflies", 1);
 
-            if (!jitterMipMap)
-                rendererMaterial.SetInt("_JitterMipMap", 0);
-            else
-                rendererMaterial.SetInt("_JitterMipMap", 1);
-
-            switch (noiseType)
-            {
-                case NoiseType.White:
-                    rendererMaterial.SetInt("_NoiseType", 0);
-                    break;
-                case NoiseType.Blue:
-                    rendererMaterial.SetInt("_NoiseType", 1);
-                    break;
-            }
-
             switch (debugPass)
             {
-                case DebugPass.Combine:
-                    rendererMaterial.SetInt("_DebugPass", 0);
+                case SSRDebugPass.Combine:
+                    rendererMaterial.SetInt("_SSRDebugPass", 0);
                     break;
-                case DebugPass.Reflection:
-                    rendererMaterial.SetInt("_DebugPass", 1);
+                case SSRDebugPass.Reflection:
+                    rendererMaterial.SetInt("_SSRDebugPass", 1);
                     break;
-                case DebugPass.Cubemap:
-                    rendererMaterial.SetInt("_DebugPass", 2);
+                case SSRDebugPass.Cubemap:
+                    rendererMaterial.SetInt("_SSRDebugPass", 2);
                     break;
-                case DebugPass.ReflectionAndCubemap:
-                    rendererMaterial.SetInt("_DebugPass", 3);
+                case SSRDebugPass.ReflectionAndCubemap:
+                    rendererMaterial.SetInt("_SSRDebugPass", 3);
                     break;
-                case DebugPass.SSRMask:
-                    rendererMaterial.SetInt("_DebugPass", 4);
+                case SSRDebugPass.SSRMask:
+                    rendererMaterial.SetInt("_SSRDebugPass", 4);
                     break;
-                case DebugPass.CombineNoCubemap:
-                    rendererMaterial.SetInt("_DebugPass", 5);
+                case SSRDebugPass.CombineNoCubemap:
+                    rendererMaterial.SetInt("_SSRDebugPass", 5);
                     break;
-                case DebugPass.RayCast:
-                    rendererMaterial.SetInt("_DebugPass", 6);
+                case SSRDebugPass.RayCast:
+                    rendererMaterial.SetInt("_SSRDebugPass", 6);
                     break;
             }
         }
@@ -363,12 +329,13 @@ namespace cCharkes
 
             int rayWidth = width / (int)rayMode;
             int rayHeight = height / (int)rayMode;
+            debug = new Vector4(width, height, m_camera.nearClipPlane / (m_camera.nearClipPlane - m_camera.farClipPlane), 0.0f);
+            rendererMaterial.SetVector("_Project", debug);
 
             RenderTexture rayCast = CreateTempBuffer(rayWidth, rayHeight, 0, RenderTextureFormat.ARGBHalf);
             RenderTexture rayCastMask = CreateTempBuffer(rayWidth, rayHeight, 0, RenderTextureFormat.R8);
             RenderTexture depthBuffer = CreateTempBuffer(width / (int)depthMode, height / (int)depthMode, 0, RenderTextureFormat.RFloat);
             rayCast.filterMode = rayFilterMode;
-            //rayCastMask.filterMode = FilterMode.Point;
             depthBuffer.filterMode = FilterMode.Point;
 
             rendererMaterial.SetTexture("_RayCast", rayCast);
@@ -382,10 +349,20 @@ namespace cCharkes
             ReleaseTempBuffer(depthBuffer);
             //
 
-            if (!recursiveReflection)
-                Graphics.Blit(source, mainBuffer, rendererMaterial, 1); // Main buffer without cubemap reflection
-            else
-                Graphics.Blit(mainBuffer1, mainBuffer, rendererMaterial, 8); // Main buffer without cubemap reflection
+            switch (debugPass)
+            {
+                case SSRDebugPass.Reflection:
+                case SSRDebugPass.Cubemap:
+                case SSRDebugPass.CombineNoCubemap:
+                case SSRDebugPass.RayCast:
+                case SSRDebugPass.ReflectionAndCubemap:
+                case SSRDebugPass.SSRMask:
+                    Graphics.Blit(source, mainBuffer0, rendererMaterial, 1);
+                    break;
+                case SSRDebugPass.Combine:
+                    Graphics.Blit(mainBuffer1, mainBuffer0, rendererMaterial, 8);
+                    break;
+            }
 
             // Raycast pass
             renderBuffer[0] = rayCast.colorBuffer;
@@ -399,55 +376,46 @@ namespace cCharkes
             int resolveHeight = height / (int)resolveMode;
 
             RenderTexture resolvePass = CreateTempBuffer(resolveWidth, resolveHeight, 0, RenderTextureFormat.ARGBHalf);
-            //resolvePass.filterMode = FilterMode.Point;
 
             rendererMaterial.SetVector("_BufferSize", new Vector2((float)rayWidth, (float)rayHeight));
             rendererMaterial.SetInt("_MaxMipMap", maxMipMap);
 
             if (useMipMap)
             {
-                Graphics.Blit(mainBuffer, mipMapBuffer0); // Copy the source frame buffer to the mip map buffer
+                Graphics.Blit(mainBuffer0, mipMapBuffer0); // Copy the source frame buffer to the mip map buffer
 
-                Vector2[] mipMapBufferSize = new Vector2[11];
-                mipMapBufferSize[0] = new Vector2(1024, 1024);
-                mipMapBufferSize[1] = new Vector2(512, 512);
-                mipMapBufferSize[2] = new Vector2(256, 256);
-                mipMapBufferSize[3] = new Vector2(128, 128);
-                mipMapBufferSize[4] = new Vector2(64, 64);
-                mipMapBufferSize[5] = new Vector2(32, 32);
-                mipMapBufferSize[6] = new Vector2(16, 16);
-                mipMapBufferSize[7] = new Vector2(8, 8);
-                mipMapBufferSize[8] = new Vector2(4, 4);
-                mipMapBufferSize[9] = new Vector2(2, 2);
-                mipMapBufferSize[10] = new Vector2(1, 1);
+                Vector2[] dirX = new Vector2[5];
+                dirX[0] = new Vector2(1.0f / 1024.0f, 0.0f);
+                dirX[1] = new Vector2(1.0f / 256.0f, 0.0f);
+                dirX[2] = new Vector2(1.0f / 128.0f, 0.0f);
+                dirX[3] = new Vector2(1.0f / 64.0f, 0.0f);
+                dirX[4] = new Vector2(1.0f / 32.0f, 0.0f);
 
-                Graphics.Blit(mipMapBuffer0, mipMapBuffer1);
+                Vector2[] dirY = new Vector2[5];
+                dirY[0] = new Vector2(0.0f, 1.0f / 1024.0f);
+                dirY[1] = new Vector2(0.0f, 1.0f / 256.0f);
+                dirY[2] = new Vector2(0.0f, 1.0f / 128.0f);
+                dirY[3] = new Vector2(0.0f, 1.0f / 64.0f);
+                dirY[4] = new Vector2(0.0f, 1.0f / 32.0f);
 
-                for (int i = 0; i < maxMipMap; i++)
-                {
-                    rendererMaterial.SetVector("_MipMapBufferSize", mipMapBufferSize[i]);
-                    rendererMaterial.SetInt("_MipMapCount", i);
-
-                    rendererMaterial.SetVector("_GaussianDir", new Vector2(1.0f, 0.0f));
-
-                    rendererMaterial.SetTexture("_MainTex", mipMapBuffer1);
-                    Graphics.SetRenderTarget(mipMapBuffer1, i);
-                    rendererMaterial.SetPass(6);
-                    DrawFullScreenQuad();
-                }
-
-                Graphics.Blit(mipMapBuffer1, mipMapBuffer2);
+                int[] mipLevel = new int[5];
+                mipLevel[0] = 0;
+                mipLevel[1] = 2;
+                mipLevel[2] = 3;
+                mipLevel[3] = 4;
+                mipLevel[4] = 5;
 
                 for (int i = 0; i < maxMipMap; i++)
                 {
-                    rendererMaterial.SetVector("_MipMapBufferSize", mipMapBufferSize[i]);
-                    rendererMaterial.SetInt("_MipMapCount", i);
+                    rendererMaterial.SetVector("_GaussianDir", dirX[i]);
+                    rendererMaterial.SetInt("_MipMapCount", mipLevel[i]);
+                    Graphics.Blit(mipMapBuffer0, mipMapBuffer1, rendererMaterial, 6);
 
-                    rendererMaterial.SetVector("_GaussianDir", new Vector2(0.0f, 1.0f));
+                    rendererMaterial.SetVector("_GaussianDir", dirY[i]);
+                    rendererMaterial.SetInt("_MipMapCount", mipLevel[i]);
+                    Graphics.Blit(mipMapBuffer1, mipMapBuffer0, rendererMaterial, 6);
 
-                    rendererMaterial.SetTexture("_MainTex", mipMapBuffer2);
                     Graphics.SetRenderTarget(mipMapBuffer2, i);
-                    rendererMaterial.SetPass(6);
                     DrawFullScreenQuad();
                 }
 
@@ -455,8 +423,9 @@ namespace cCharkes
             }
             else
             {
-                Graphics.Blit(mainBuffer, resolvePass, rendererMaterial, 0); // Resolve pass without mip map buffer
+                Graphics.Blit(mainBuffer0, resolvePass, rendererMaterial, 0); // Resolve pass without mip map buffer
             }
+
             rendererMaterial.SetTexture("_ReflectionBuffer", resolvePass);
 
             ReleaseTempBuffer(rayCast);
@@ -469,84 +438,80 @@ namespace cCharkes
                 rendererMaterial.SetFloat("_TMaxResponse", maxResponse);
 
                 RenderTexture temporalBuffer0 = CreateTempBuffer(width, height, 0, RenderTextureFormat.ARGBHalf);
-                //temporalBuffer0.filterMode = FilterMode.Point;
 
-                rendererMaterial.SetTexture("_PreviousBuffer", temporalBuffer1);
+                rendererMaterial.SetTexture("_PreviousBuffer", temporalBuffer);
 
                 Graphics.Blit(resolvePass, temporalBuffer0, rendererMaterial, 5); // Temporal pass
 
                 rendererMaterial.SetTexture("_ReflectionBuffer", temporalBuffer0);
 
-                Graphics.Blit(temporalBuffer0, temporalBuffer1);
+                Graphics.Blit(temporalBuffer0, temporalBuffer);
 
                 ReleaseTempBuffer(temporalBuffer0);
             }
 
-            if (recursiveReflection)
+            switch(debugPass)
             {
-                Graphics.Blit(source, mainBuffer1, rendererMaterial, 2);
-                Graphics.Blit(mainBuffer1, destination);
+                case SSRDebugPass.Reflection:
+                case SSRDebugPass.Cubemap:
+                case SSRDebugPass.CombineNoCubemap:
+                case SSRDebugPass.RayCast:
+                case SSRDebugPass.ReflectionAndCubemap:
+                case SSRDebugPass.SSRMask:
+                    Graphics.Blit(source, destination, rendererMaterial, 2);
+                    break;
+                case SSRDebugPass.Combine:
+                    Graphics.Blit(source, mainBuffer1, rendererMaterial, 2);
+                    Graphics.Blit(mainBuffer1, destination);
+                    break;
             }
-            else
-                Graphics.Blit(source, destination, rendererMaterial, 2);
 
 
             ReleaseTempBuffer(resolvePass);
 
             prevViewProjectionMatrix = viewProjectionMatrix;
 
-           /* RenderTexture resolvePass = CreateTempBuffer(width, height, 0, RenderTextureFormat.ARGBHalf);
+           /* Graphics.Blit(source, mipMapBuffer0);
 
-            Graphics.Blit(source, mipMapBuffer0);
+            Vector2[] dirX = new Vector2[5];
+            dirX[0] = new Vector2(1.0f / 1024.0f, 0.0f);
+            dirX[1] = new Vector2(1.0f / 256.0f, 0.0f);
+            dirX[2] = new Vector2(1.0f / 128.0f, 0.0f);
+            dirX[3] = new Vector2(1.0f / 64.0f, 0.0f);
+            dirX[4] = new Vector2(1.0f / 32.0f, 0.0f);
 
-            Vector2[] mipMapBufferSize = new Vector2[11];
-            mipMapBufferSize[0] = new Vector2(1024, 1024);
-            mipMapBufferSize[1] = new Vector2(512, 512);
-            mipMapBufferSize[2] = new Vector2(256, 256);
-            mipMapBufferSize[3] = new Vector2(128, 128);
-            mipMapBufferSize[4] = new Vector2(64, 64);
-            mipMapBufferSize[5] = new Vector2(32, 32);
-            mipMapBufferSize[6] = new Vector2(16, 16);
-            mipMapBufferSize[7] = new Vector2(8, 8);
-            mipMapBufferSize[8] = new Vector2(4, 4);
-            mipMapBufferSize[9] = new Vector2(2, 2);
-            mipMapBufferSize[10] = new Vector2(1, 1);
+            Vector2[] dirY = new Vector2[5];
+            dirY[0] = new Vector2(0.0f, 1.0f / 1024.0f);
+            dirY[1] = new Vector2(0.0f, 1.0f / 256.0f);
+            dirY[2] = new Vector2(0.0f, 1.0f / 128.0f);
+            dirY[3] = new Vector2(0.0f, 1.0f / 64.0f);
+            dirY[4] = new Vector2(0.0f, 1.0f / 32.0f);
 
-            Graphics.Blit(mipMapBuffer0, mipMapBuffer1);
-
-            for (int i = 0; i < maxMipMap; i++)
-            {
-                rendererMaterial.SetVector("_MipMapBufferSize", mipMapBufferSize[i]);
-                rendererMaterial.SetInt("_MipMapCount", i);
-
-                rendererMaterial.SetVector("_GaussianDir", new Vector2(1.0f, 0.0f));
-
-                rendererMaterial.SetTexture("_MainTex", mipMapBuffer1);
-                Graphics.SetRenderTarget(mipMapBuffer1, i);
-                rendererMaterial.SetPass(6);
-                DrawFullScreenQuad();
-            }
-            
-            Graphics.Blit(mipMapBuffer1, mipMapBuffer2);
+            int[] mipLevel = new int[5];
+            mipLevel[0] = 0;
+            mipLevel[1] = 2;
+            mipLevel[2] = 3;
+            mipLevel[3] = 4;
+            mipLevel[4] = 5;
 
             for (int i = 0; i < maxMipMap; i++)
             {
-                rendererMaterial.SetVector("_MipMapBufferSize", mipMapBufferSize[i]);
-                rendererMaterial.SetInt("_MipMapCount", i);
+                rendererMaterial.SetVector("_GaussianDir", dirX[i]);
+                rendererMaterial.SetInt("_MipMapCount", mipLevel[i]);
+                Graphics.Blit(mipMapBuffer0, mipMapBuffer1, rendererMaterial, 6);
 
-                rendererMaterial.SetVector("_GaussianDir", new Vector2(0.0f, 1.0f));
+                rendererMaterial.SetVector("_GaussianDir", dirY[i]);
+                rendererMaterial.SetInt("_MipMapCount", mipLevel[i]);
+                Graphics.Blit(mipMapBuffer1, mipMapBuffer0, rendererMaterial, 6);
 
-                rendererMaterial.SetTexture("_MainTex", mipMapBuffer2);
                 Graphics.SetRenderTarget(mipMapBuffer2, i);
-                rendererMaterial.SetPass(6);
                 DrawFullScreenQuad();
-            }
+             }
 
             rendererMaterial.SetTexture("_ReflectionBuffer", mipMapBuffer2);
 
-            Graphics.Blit(source, destination, rendererMaterial, 7);
+            Graphics.Blit(source, destination, rendererMaterial, 7);*/
 
-            ReleaseTempBuffer(resolvePass);*/
         }
 
         public void DrawFullScreenQuad()

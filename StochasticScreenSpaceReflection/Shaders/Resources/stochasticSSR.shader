@@ -1,26 +1,24 @@
-﻿//Copyright (c) 2015, Charles Greivelding Thomas
-//All rights reserved.
-//
-//Redistribution and use in source and binary forms, with or without
-//modification, are permitted provided that the following conditions are met:
-//
-//* Redistributions of source code must retain the above copyright notice, this
-//  list of conditions and the following disclaimer.
-//
-//* Redistributions in binary form must reproduce the above copyright notice,
-//  this list of conditions and the following disclaimer in the documentation
-//  and/or other materials provided with the distribution.
-//
-//THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
-//AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
-//IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
-//DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE
-//FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
-//DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
-//SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
-//CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
-//OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
-//OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+﻿//The MIT License(MIT)
+
+//Copyright(c) 2016 Charles Greivelding Thomas
+
+//Permission is hereby granted, free of charge, to any person obtaining a copy
+//of this software and associated documentation files (the "Software"), to deal
+//in the Software without restriction, including without limitation the rights
+//to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+//copies of the Software, and to permit persons to whom the Software is
+//furnished to do so, subject to the following conditions:
+
+//The above copyright notice and this permission notice shall be included in all
+//copies or substantial portions of the Software.
+
+//THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+//IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+//FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+//AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+//LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+//OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+//SOFTWARE.
 
 Shader "Hidden/Stochastic SSR" 
 {
@@ -61,7 +59,6 @@ Shader "Hidden/Stochastic SSR"
 		return o;
 	}
 
-
 	// Based on https://github.com/playdeadgames/temporal
 	void temporal (VertexOutput i, out half4 reflection : SV_Target)
 	{	
@@ -69,9 +66,9 @@ Shader "Hidden/Stochastic SSR"
 
 		float depth = GetDepth(_CameraDepthTexture, uv);
 		float3 screenPos = GetScreenPos(uv, depth);
-		float2 velocity = ReprojectUV(screenPos) - uv;
+		float2 velocity = GetVelocity(uv); // 5.4 motion vector
 
-		float2 prevUV = uv + velocity;
+		float2 prevUV = uv - velocity;
 
 		float4 current = GetSampleColor(_MainTex, uv);
 		float4 previous = GetSampleColor(_PreviousBuffer, prevUV);
@@ -98,9 +95,7 @@ Shader "Hidden/Stochastic SSR"
 		currentMin = (currentMin - center) * scale + center;
 		currentMax = (currentMax - center) * scale + center;
 
-		previous = clamp(previous, currentMin, currentMax); // This works better
-
-		//previous =  max(1e-5,lerp(clamp(previous, cmin, cmax), previous, scale)); // Is nice but too much smearing
+		previous = clamp(previous, currentMin, currentMax);
 
 		float currentLum = Luminance(current.rgb);
 		float previousLum = Luminance(previous.rgb);
@@ -137,7 +132,8 @@ Shader "Hidden/Stochastic SSR"
 			float2 offsetRotation;
 			sincos(2.0 * PI * interleavedGradientNoise, offsetRotation.y, offsetRotation.x);
 			offsetRotationMatrix = float2x2(offsetRotation.x, offsetRotation.y, -offsetRotation.y, offsetRotation.x);
-		}*/
+		}
+		*/
 
 		float2 offsetRotation = Step3T(pos, _Time.y * _UseTemporal) * 2.0 - 1.0;
 		float2x2 offsetRotationMatrix = float2x2(offsetRotation.x, offsetRotation.y, -offsetRotation.y, offsetRotation.x);
@@ -146,14 +142,9 @@ Shader "Hidden/Stochastic SSR"
 		if(_RayReuse == 1)
 			NumResolve = 4;
 
-		float coneTangent = roughness * (1.0 + _BRDFBias);
 		float NdotV = saturate(dot(worldNormal, -viewDir));
-		coneTangent *= lerp(saturate(NdotV * 2.0), 1.0, sqrt(roughness));// * NdotV;
-
-		// http://roar11.com/2015/07/screen-space-glossy-reflections/
-		float specularPower = RoughnessToSpecPower(roughness);
-		float coneTheta = specularPowerToConeAngle(specularPower) * 0.5f;
-		//
+		float coneTangent = roughness * (1.0 - _BRDFBias);
+		coneTangent *= lerp(saturate(NdotV * NdotV), 1.0, sqrt(roughness));
 
 		float maxMipLevel = (float)_MaxMipMap - 1.0f;
 
@@ -184,22 +175,10 @@ Shader "Hidden/Stochastic SSR"
             // Finally, the weight is BRDF/PDF. BRDF uses the local pixel's normal and roughness, but PDF comes from the neighbor.
 			float weight = 1.0;
 			if(_UseNormalization == 1)
-				 weight =  max(1e-5, max(1e-5,BRDF(normalize(-viewPos) /*V*/, normalize(hitViewPos - viewPos) /*L*/, viewNormal /*N*/, roughness)) / hitPDF);
+				 weight =  max(1e-5, max(1e-5,BRDF_Unity_Weight(normalize(-viewPos) /*V*/, normalize(hitViewPos - viewPos) /*L*/, viewNormal /*N*/, roughness)) / hitPDF);
 
-			//float intersectionCircleRadius = coneTangent * length(hitUv - neighborUv);
-			//float mip = clamp(log2(intersectionCircleRadius * _BufferSize.y), 0, maxMipLevel);
-
-			// http://roar11.com/2015/07/screen-space-glossy-reflections/
-			float2 deltaP = hitUv - neighborUv;
-			float adjacentLength = length(deltaP);
-			float oppositeLength = isoscelesTriangleOpposite(adjacentLength, coneTheta);
- 
-			// calculate in-radius of the isosceles triangle
-			float incircleSize = isoscelesTriangleInRadius(oppositeLength, adjacentLength);
- 
-			// convert the in-radius into screen size then check what power N to raise 2 to reach it - that power N becomes mip level to sample from
-			float mip = clamp(log2(incircleSize * max(_BufferSize.x, _BufferSize.y)), 0.0, maxMipLevel);
-			//
+			float intersectionCircleRadius = coneTangent * length(hitUv - neighborUv);
+			float mip = clamp(log2(intersectionCircleRadius * _BufferSize.y), 0, maxMipLevel);
 
 			float4 sampleColor = float4(tex2Dlod(_MainTex, float4(hitUv, 0, mip)).xyz, RayAttenBorder (hitUv, _EdgeFactor) * hitMask);
 
@@ -232,18 +211,14 @@ Shader "Hidden/Stochastic SSR"
 		float3 screenPos = GetScreenPos(uv, depth);
 		float3 viewPos = GetViewPos(screenPos);
 
-		float2 jitter = 0.0;
-		if(_NoiseType == 0)
-			jitter = Noise(pos, _Time.y * _UseTemporal);
-		else if (_NoiseType == 1)
-			jitter = Step3T(pos, _Time.y * _UseTemporal);
+		float2 jitter = Step3T(pos, _Time.y * _UseTemporal);
 
 		float2 Xi =  jitter;
 
 		Xi.y = lerp(Xi.y, 0.0, _BRDFBias);
 
 		float4 H = TangentToWorld(viewNormal, ImportanceSampleGGX(Xi, roughness));
-		float3 R = reflect(normalize(viewPos), H.xyz);
+		float3 dir = reflect(normalize(viewPos), H.xyz);
 
 		jitter += 0.5f;
 
@@ -254,7 +229,7 @@ Shader "Hidden/Stochastic SSR"
 		float rayTraceZ = 0.0f;
 		float rayPDF = 0.0f;
 		float rayMask = 0.0f;
-		float4 rayTrace = RayMarch(_CameraDepthBuffer, _ProjectionMatrix, R, _NumSteps, viewPos, screenPos, uv, stepSize);
+		float4 rayTrace = RayMarch(_CameraDepthBuffer, _ProjectionMatrix, dir, _NumSteps, viewPos, screenPos, uv, stepSize);
 
 		rayTraceHit = rayTrace.xy;
 		rayTraceZ = rayTrace.z;
@@ -283,9 +258,9 @@ Shader "Hidden/Stochastic SSR"
 
 		float depth = GetDepth(_CameraDepthTexture, uv);
 		float3 screenPos = GetScreenPos(uv, depth);
-		float2 velocity = ReprojectUV(screenPos) - uv;
+		float2 velocity = GetVelocity(uv); // 5.4 motion vector
 
-		float2 prevUV = uv + velocity;
+		float2 prevUV = uv - velocity;
 
 		float4 cubemap = GetCubeMap (uv);
 
@@ -367,34 +342,19 @@ Shader "Hidden/Stochastic SSR"
 
 	static const float weights[7] = {0.001f, 0.028f, 0.233f, 0.474f, 0.233f, 0.028f, 0.001f};
 
-	float4 _GaussianDir;
-	float4 _MipMapBufferSize;
-	int	_MipMapCount;
-
 	float4 mipMapBlur( VertexOutput i ) : SV_Target
 	{	 
 		float2 uv = i.uv;
-		int2 pos = uv * _MipMapBufferSize.xy;
-
-		float2 jitter = Step3T(pos, _Time.y * _UseTemporal) * 0.25 + 0.5;
-		float2x2 offsetRotationMatrix = float2x2(jitter.x, jitter.y, -jitter.y, jitter.x);
 
 		int NumSamples = 7;
 
 		float4 result = 0.0;
 		for(int i = 0; i < NumSamples; i++)
 		{
-			float2 offset = 0.0;
-
-			if(_JitterMipMap == 1)
-			{
-				offset =  offsets[i] * 1.0 / _MipMapBufferSize.xy * _GaussianDir;
-				offset = mul(offsetRotationMatrix, offset);
-			}
-			else
-				offset = offsets[i] * 1.0 / _MipMapBufferSize.xy * _GaussianDir;
+			float2 offset = offsets[i] * _GaussianDir;
 
 			float4 sampleColor = tex2Dlod(_MainTex, float4(uv + offset, 0, _MipMapCount));
+
 			if(_Fireflies == 1)
 				sampleColor.rgb /= 1 + Luminance(sampleColor.rgb);
 
@@ -410,9 +370,7 @@ Shader "Hidden/Stochastic SSR"
 	float4 debug( VertexOutput i ) : SV_Target
 	{	 
 		float2 uv = i.uv;
-		float4 specular = GetSpecular (uv);
-
-		return tex2Dlod(_ReflectionBuffer, float4(uv,0, uv.x * 11));
+		return tex2Dlod(_ReflectionBuffer, float4(uv,0, _SmoothnessRange * 4.0));
 	}
 
 	ENDCG 
