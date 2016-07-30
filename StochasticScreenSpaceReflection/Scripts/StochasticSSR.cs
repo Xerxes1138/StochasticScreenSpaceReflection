@@ -264,25 +264,25 @@ namespace cCharkes
             switch (debugPass)
             {
                 case SSRDebugPass.Combine:
-                    rendererMaterial.SetInt("_SSRDebugPass", 0);
+                    rendererMaterial.SetInt("_DebugPass", 0);
                     break;
                 case SSRDebugPass.Reflection:
-                    rendererMaterial.SetInt("_SSRDebugPass", 1);
+                    rendererMaterial.SetInt("_DebugPass", 1);
                     break;
                 case SSRDebugPass.Cubemap:
-                    rendererMaterial.SetInt("_SSRDebugPass", 2);
+                    rendererMaterial.SetInt("_DebugPass", 2);
                     break;
                 case SSRDebugPass.ReflectionAndCubemap:
-                    rendererMaterial.SetInt("_SSRDebugPass", 3);
+                    rendererMaterial.SetInt("_DebugPass", 3);
                     break;
                 case SSRDebugPass.SSRMask:
-                    rendererMaterial.SetInt("_SSRDebugPass", 4);
+                    rendererMaterial.SetInt("_DebugPass", 4);
                     break;
                 case SSRDebugPass.CombineNoCubemap:
-                    rendererMaterial.SetInt("_SSRDebugPass", 5);
+                    rendererMaterial.SetInt("_DebugPass", 5);
                     break;
                 case SSRDebugPass.RayCast:
-                    rendererMaterial.SetInt("_SSRDebugPass", 6);
+                    rendererMaterial.SetInt("_DebugPass", 6);
                     break;
             }
         }
