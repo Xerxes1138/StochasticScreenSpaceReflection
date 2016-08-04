@@ -137,11 +137,10 @@ namespace cCharkes
 
         RenderBuffer[] renderBuffer = new RenderBuffer[2];
 
-        void OnEnable()
+        void Awake()
         {
             m_camera = GetComponent<Camera>();
-            m_camera.depthTextureMode = DepthTextureMode.Depth;
-            m_camera.depthTextureMode = DepthTextureMode.MotionVectors;
+            m_camera.depthTextureMode |= DepthTextureMode.Depth | DepthTextureMode.MotionVectors;
         }
 
         static Material m_rendererMaterial = null;
