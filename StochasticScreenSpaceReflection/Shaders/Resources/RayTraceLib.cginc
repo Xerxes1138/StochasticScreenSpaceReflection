@@ -20,6 +20,45 @@
 //OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 //SOFTWARE.
 
+/*float4 RayMarch(sampler2D tex, float4x4 _ProjectionMatrix, float3 viewDir, int NumSteps, float3 viewPos, float3 screenPos, float2 uv, float stepSize)
+{
+	float depth = LinearEyeDepth(UNITY_SAMPLE_DEPTH(tex2D(tex, uv)));
+
+	float4 rayProj = mul (_ProjectionMatrix, float4(viewDir + viewPos, 1.0f));
+
+	float3 rayDir = normalize( rayProj.xyz / rayProj.w - screenPos );
+	rayDir.xy *= 0.5f;
+
+	//float3 rayDir = float3(viewDir.xy - viewPos.xy / viewPos.z * viewDir.z, viewDir.z / viewPos.z) * _Project;
+
+	float sampleMask = 0.0f;
+
+	float3 rayStart = float3(uv, screenPos.z);
+
+    float3 project = _Project;
+
+	float3 samplePos = rayStart + rayDir * stepSize;
+
+	float mask = 0;
+	for (int i = 0;  i < NumSteps; i++)
+	{
+		float sampleDepth  = (UNITY_SAMPLE_DEPTH(tex2Dlod (tex, float4(samplePos.xy,0,0))));
+				
+		//float thickness = (project.z) / depth;
+		float delta = (samplePos.z) - sampleDepth;
+
+		if ( sampleDepth < (samplePos.z) )
+		{  
+			mask = 1; //TO FIX !!!
+			break;
+		}
+		else
+			samplePos += rayDir * stepSize;
+		
+	}
+	return float4(samplePos, mask);
+}*/
+
 float4 RayMarch(sampler2D tex, float4x4 _ProjectionMatrix, float3 viewDir, int NumSteps, float3 viewPos, float3 screenPos, float2 uv, float stepSize)
 {
 	float depth = LinearEyeDepth(UNITY_SAMPLE_DEPTH(tex2D(tex, uv)));

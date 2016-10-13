@@ -20,6 +20,45 @@
 //OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 //SOFTWARE.
 
+
+// David Neubelt and Matt Pettineo, Ready at Dawn Studios, "Crafting a Next-Gen Material Pipeline for The Order: 1886", 2013
+float D_GGX(float Roughness, float NdotH)
+{
+	float m = Roughness * Roughness;
+	float m2 = m * m;
+	
+	float D = m2 / (PI * sqr(sqr(NdotH) * (m2 - 1) + 1));
+	
+	return D;
+}
+
+	// Bruce Walter, Stephen R. Marschner, Hongsong Li, and Kenneth E. Torrance. Microfacet models forrefraction through rough surfaces. In Proceedings of the 18th Eurographics conference on RenderingTechniques, EGSR'07
+float G_GGX(float Roughness, float NdotL, float NdotV)
+{
+	float m = Roughness * Roughness;
+	float m2 = m * m;
+
+	float G_L = 1.0f / (NdotL + sqrt(m2 + (1 - m2) * NdotL * NdotL));
+	float G_V = 1.0f / (NdotV + sqrt(m2 + (1 - m2) * NdotV * NdotV));
+	float G = G_L * G_V;
+	
+	return G;
+}
+
+float BRDF_UE4(float3 V, float3 L, float3 N, float Roughness)
+{
+		float3 H = normalize(L + V);
+
+		float NdotH = saturate(dot(N,H));
+		float NdotL = saturate(dot(N,L));
+		float NdotV = saturate(dot(N,V));
+
+		float D = D_GGX(Roughness, NdotH);
+		float G = G_GGX(Roughness, NdotL, NdotV);
+
+		return D * G;
+}
+
 float BRDF_Unity_Weight(float3 V, float3 L, float3 N, float Roughness)
 {
 	float3 H = normalize(L + V);

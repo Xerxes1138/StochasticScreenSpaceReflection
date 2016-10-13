@@ -30,6 +30,8 @@ uniform sampler2D	_MainTex,
 					_RayCast,
 					_RayCastMask;
 
+uniform	sampler2D	_Noise;
+
 uniform sampler2D	_CameraGBufferTexture0,
 					_CameraGBufferTexture1,
 					_CameraGBufferTexture2,
@@ -41,6 +43,8 @@ uniform sampler2D_half _CameraMotionVectorsTexture;
 
 uniform float4		_MainTex_TexelSize;
 uniform float4		_BufferSize;
+uniform	float4		_RayCastSize;
+uniform	float4		_NoiseSize;
 uniform float4		_Project;
 uniform float4		_GaussianDir;
 uniform float		_EdgeFactor; 
@@ -160,6 +164,14 @@ static const float2 offset[4] =
 	float2(2, -2),
 	float2(-2, -2),
 	float2(0, 2)
+};
+
+static const float dists[4] =
+{
+	0,
+	1,
+	2,
+	3
 };
 
 float RayAttenBorder (float2 pos, float value)

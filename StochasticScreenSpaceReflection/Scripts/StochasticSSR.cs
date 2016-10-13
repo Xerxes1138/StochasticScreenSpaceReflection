@@ -44,6 +44,7 @@ namespace cCharkes
         SSRMask,
         CombineNoCubemap,
         RayCast,
+        Jitter,
     };
 
     [RequireComponent(typeof(Camera))]
@@ -69,6 +70,9 @@ namespace cCharkes
         [Range(0.0f, 1.0f)]
         [SerializeField]
         float BRDFBias = 0.7f;
+
+        [SerializeField]
+        Texture noise;
 
         [Header("Resolve")]
         [SerializeField]
@@ -140,8 +144,16 @@ namespace cCharkes
         void OnEnable()
         {
             m_camera = GetComponent<Camera>();
-            m_camera.depthTextureMode = DepthTextureMode.Depth;
-            m_camera.depthTextureMode = DepthTextureMode.MotionVectors;
+
+            if (m_camera.depthTextureMode != DepthTextureMode.Depth || m_camera.depthTextureMode != DepthTextureMode.MotionVectors)
+            {
+                m_camera.depthTextureMode = DepthTextureMode.Depth;
+                m_camera.depthTextureMode = DepthTextureMode.MotionVectors;
+            }
+            else if (m_camera.depthTextureMode == DepthTextureMode.Depth)
+            {
+                m_camera.depthTextureMode = DepthTextureMode.MotionVectors;
+            }
         }
 
         static Material m_rendererMaterial = null;
@@ -231,6 +243,8 @@ namespace cCharkes
 
         void UpdateVariable()
         {
+            rendererMaterial.SetTexture("_Noise", noise);
+            rendererMaterial.SetVector("_NoiseSize", new Vector2(noise.width, noise.height));
             rendererMaterial.SetFloat("_BRDFBias", BRDFBias);
             rendererMaterial.SetFloat("_SmoothnessRange", smoothnessRange);
             rendererMaterial.SetFloat("_EdgeFactor", screenFadeSize);
@@ -284,6 +298,9 @@ namespace cCharkes
                 case SSRDebugPass.RayCast:
                     rendererMaterial.SetInt("_DebugPass", 6);
                     break;
+                case SSRDebugPass.Jitter:
+                    rendererMaterial.SetInt("_DebugPass", 7);
+                    break;
             }
         }
 
@@ -331,6 +348,7 @@ namespace cCharkes
             int rayHeight = height / (int)rayMode;
             debug = new Vector4(width, height, m_camera.nearClipPlane / (m_camera.nearClipPlane - m_camera.farClipPlane), 0.0f);
             rendererMaterial.SetVector("_Project", debug);
+            rendererMaterial.SetVector("_RayCastSize", new Vector2((float)rayWidth, (float)rayHeight));
 
             RenderTexture rayCast = CreateTempBuffer(rayWidth, rayHeight, 0, RenderTextureFormat.ARGBHalf);
             RenderTexture rayCastMask = CreateTempBuffer(rayWidth, rayHeight, 0, RenderTextureFormat.R8);
@@ -357,6 +375,7 @@ namespace cCharkes
                 case SSRDebugPass.RayCast:
                 case SSRDebugPass.ReflectionAndCubemap:
                 case SSRDebugPass.SSRMask:
+                case SSRDebugPass.Jitter:
                     Graphics.Blit(source, mainBuffer0, rendererMaterial, 1);
                     break;
                 case SSRDebugPass.Combine:
@@ -458,6 +477,7 @@ namespace cCharkes
                 case SSRDebugPass.RayCast:
                 case SSRDebugPass.ReflectionAndCubemap:
                 case SSRDebugPass.SSRMask:
+                case SSRDebugPass.Jitter:
                     Graphics.Blit(source, destination, rendererMaterial, 2);
                     break;
                 case SSRDebugPass.Combine:
@@ -471,7 +491,7 @@ namespace cCharkes
 
             prevViewProjectionMatrix = viewProjectionMatrix;
 
-           /* Graphics.Blit(source, mipMapBuffer0);
+          /*  Graphics.Blit(source, mipMapBuffer0);
 
             Vector2[] dirX = new Vector2[5];
             dirX[0] = new Vector2(1.0f / 1024.0f, 0.0f);
