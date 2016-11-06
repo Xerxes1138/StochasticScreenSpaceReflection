@@ -4,7 +4,7 @@
 
 # Requirements
 
-UnitySSR require Unity 5.4 and a shader model 3.0 ( dx9 ) graphic card.
+Unity 5.4 and a shader model 3.0 ( dx9 ) graphic card.
 
 # How to use
 
