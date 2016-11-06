@@ -20,14 +20,31 @@
 //OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 //SOFTWARE.
 
-float2 Noise(float2 pos, float2 random)
+float RandN(float2 pos, float2 random)
+{
+	return frac(sin(dot(pos.xy + random, float2(12.9898, 78.233))) * 43758.5453);
+
+}
+
+float2 RandN2(float2 pos, float2 random)
 {
 	return frac(sin(dot(pos.xy + random, float2(12.9898, 78.233))) * float2(43758.5453, 28001.8384));
 }
 
-// https://www.shadertoy.com/view/4sBSDW
-float Noise(float2 n,float x){n+=x;return frac(sin(dot(n.xy, float2(12.9898, 78.233))) * 43758.5453) * 2.0 - 1.0;}
+float RandS(float2 pos, float2 random)
+{
+	return RandN(pos, random) * 2.0 - 1.0;
+}
 
+// [Jimenez 2014] "Next Generation Post Processing In Call Of Duty Advanced Warfare"  
+float InterleavedGradientNoise (float2 pos, float2 random)
+{
+	float3 magic = float3(0.06711056, 0.00583715, 52.9829189);
+	return frac(magic.z * frac(dot(pos.xy + random, magic.xy)));
+}
+
+
+// https://www.shadertoy.com/view/4sBSDW
 float Step1(float2 uv,float n)
 {
 	float 
@@ -37,15 +54,15 @@ float Step1(float2 uv,float n)
 	t = 1.0;
 		   
 	return (1.0/(a*4.0+b*4.0-c))*(
-			  Noise(uv+float2(-1.0,-1.0)*t,n)*a+
-			  Noise(uv+float2( 0.0,-1.0)*t,n)*b+
-			  Noise(uv+float2( 1.0,-1.0)*t,n)*a+
-			  Noise(uv+float2(-1.0, 0.0)*t,n)*b+
-			  Noise(uv+float2( 0.0, 0.0)*t,n)*c+
-			  Noise(uv+float2( 1.0, 0.0)*t,n)*b+
-			  Noise(uv+float2(-1.0, 1.0)*t,n)*a+
-			  Noise(uv+float2( 0.0, 1.0)*t,n)*b+
-			  Noise(uv+float2( 1.0, 1.0)*t,n)*a+
+			  RandS(uv+float2(-1.0,-1.0)*t,n)*a+
+			  RandS(uv+float2( 0.0,-1.0)*t,n)*b+
+			  RandS(uv+float2( 1.0,-1.0)*t,n)*a+
+			  RandS(uv+float2(-1.0, 0.0)*t,n)*b+
+			  RandS(uv+float2( 0.0, 0.0)*t,n)*c+
+			  RandS(uv+float2( 1.0, 0.0)*t,n)*b+
+			  RandS(uv+float2(-1.0, 1.0)*t,n)*a+
+			  RandS(uv+float2( 0.0, 1.0)*t,n)*b+
+			  RandS(uv+float2( 1.0, 1.0)*t,n)*a+
 			 0.0);
 }
 

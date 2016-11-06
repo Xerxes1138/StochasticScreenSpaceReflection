@@ -166,14 +166,6 @@ static const float2 offset[4] =
 	float2(0, 2)
 };
 
-static const float dists[4] =
-{
-	0,
-	1,
-	2,
-	3
-};
-
 float RayAttenBorder (float2 pos, float value)
 {
 	float borderDist = min(1.0 - max(pos.x, pos.y), min(pos.x, pos.y));

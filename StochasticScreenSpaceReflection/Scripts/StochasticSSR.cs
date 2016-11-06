@@ -141,6 +141,10 @@ namespace cCharkes
 
         RenderBuffer[] renderBuffer = new RenderBuffer[2];
 
+        float[] dist = new float[5] { 1.0f / 1024.0f, 1.0f / 256.0f, 1.0f / 128.0f, 1.0f / 64.0f, 1.0f / 32.0f };
+
+        int[] mipLevel = new int[5] { 0, 2, 3, 4, 5 };
+
         void Awake()
         {
             m_camera = GetComponent<Camera>();
@@ -342,7 +346,7 @@ namespace cCharkes
             rendererMaterial.SetVector("_RayCastSize", new Vector2((float)rayWidth, (float)rayHeight));
 
             RenderTexture rayCast = CreateTempBuffer(rayWidth, rayHeight, 0, RenderTextureFormat.ARGBHalf);
-            RenderTexture rayCastMask = CreateTempBuffer(rayWidth, rayHeight, 0, RenderTextureFormat.R8);
+            RenderTexture rayCastMask = CreateTempBuffer(rayWidth, rayHeight, 0, RenderTextureFormat.RHalf);
             RenderTexture depthBuffer = CreateTempBuffer(width / (int)depthMode, height / (int)depthMode, 0, RenderTextureFormat.RFloat);
             rayCast.filterMode = rayFilterMode;
             depthBuffer.filterMode = FilterMode.Point;
@@ -394,34 +398,13 @@ namespace cCharkes
             {
                 Graphics.Blit(mainBuffer0, mipMapBuffer0); // Copy the source frame buffer to the mip map buffer
 
-                Vector2[] dirX = new Vector2[5];
-                dirX[0] = new Vector2(1.0f / 1024.0f, 0.0f);
-                dirX[1] = new Vector2(1.0f / 256.0f, 0.0f);
-                dirX[2] = new Vector2(1.0f / 128.0f, 0.0f);
-                dirX[3] = new Vector2(1.0f / 64.0f, 0.0f);
-                dirX[4] = new Vector2(1.0f / 32.0f, 0.0f);
-
-                Vector2[] dirY = new Vector2[5];
-                dirY[0] = new Vector2(0.0f, 1.0f / 1024.0f);
-                dirY[1] = new Vector2(0.0f, 1.0f / 256.0f);
-                dirY[2] = new Vector2(0.0f, 1.0f / 128.0f);
-                dirY[3] = new Vector2(0.0f, 1.0f / 64.0f);
-                dirY[4] = new Vector2(0.0f, 1.0f / 32.0f);
-
-                int[] mipLevel = new int[5];
-                mipLevel[0] = 0;
-                mipLevel[1] = 2;
-                mipLevel[2] = 3;
-                mipLevel[3] = 4;
-                mipLevel[4] = 5;
-
                 for (int i = 0; i < maxMipMap; i++)
                 {
-                    rendererMaterial.SetVector("_GaussianDir", dirX[i]);
+                    rendererMaterial.SetVector("_GaussianDir", dist[i] * new Vector2(1.0f, 0.0f));
                     rendererMaterial.SetInt("_MipMapCount", mipLevel[i]);
                     Graphics.Blit(mipMapBuffer0, mipMapBuffer1, rendererMaterial, 6);
 
-                    rendererMaterial.SetVector("_GaussianDir", dirY[i]);
+                    rendererMaterial.SetVector("_GaussianDir", dist[i] * new Vector2(0.0f, 1.0f));
                     rendererMaterial.SetInt("_MipMapCount", mipLevel[i]);
                     Graphics.Blit(mipMapBuffer1, mipMapBuffer0, rendererMaterial, 6);
 
@@ -477,52 +460,9 @@ namespace cCharkes
                     break;
             }
 
-
             ReleaseTempBuffer(resolvePass);
 
             prevViewProjectionMatrix = viewProjectionMatrix;
-
-          /*  Graphics.Blit(source, mipMapBuffer0);
-
-            Vector2[] dirX = new Vector2[5];
-            dirX[0] = new Vector2(1.0f / 1024.0f, 0.0f);
-            dirX[1] = new Vector2(1.0f / 256.0f, 0.0f);
-            dirX[2] = new Vector2(1.0f / 128.0f, 0.0f);
-            dirX[3] = new Vector2(1.0f / 64.0f, 0.0f);
-            dirX[4] = new Vector2(1.0f / 32.0f, 0.0f);
-
-            Vector2[] dirY = new Vector2[5];
-            dirY[0] = new Vector2(0.0f, 1.0f / 1024.0f);
-            dirY[1] = new Vector2(0.0f, 1.0f / 256.0f);
-            dirY[2] = new Vector2(0.0f, 1.0f / 128.0f);
-            dirY[3] = new Vector2(0.0f, 1.0f / 64.0f);
-            dirY[4] = new Vector2(0.0f, 1.0f / 32.0f);
-
-            int[] mipLevel = new int[5];
-            mipLevel[0] = 0;
-            mipLevel[1] = 2;
-            mipLevel[2] = 3;
-            mipLevel[3] = 4;
-            mipLevel[4] = 5;
-
-            for (int i = 0; i < maxMipMap; i++)
-            {
-                rendererMaterial.SetVector("_GaussianDir", dirX[i]);
-                rendererMaterial.SetInt("_MipMapCount", mipLevel[i]);
-                Graphics.Blit(mipMapBuffer0, mipMapBuffer1, rendererMaterial, 6);
-
-                rendererMaterial.SetVector("_GaussianDir", dirY[i]);
-                rendererMaterial.SetInt("_MipMapCount", mipLevel[i]);
-                Graphics.Blit(mipMapBuffer1, mipMapBuffer0, rendererMaterial, 6);
-
-                Graphics.SetRenderTarget(mipMapBuffer2, i);
-                DrawFullScreenQuad();
-             }
-
-            rendererMaterial.SetTexture("_ReflectionBuffer", mipMapBuffer2);
-
-            Graphics.Blit(source, destination, rendererMaterial, 7);*/
-
         }
 
         public void DrawFullScreenQuad()
