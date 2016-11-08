@@ -1,4 +1,0 @@
-sceneSetups:
-- path: Assets/StochasticSampleScene/Scenes/Example.unity
-  isLoaded: 1
-  isActive: 1
