@@ -212,7 +212,6 @@ Shader "Hidden/Stochastic SSR"
             result += sampleColor * weight;
             weightSum += weight;
         }
-		// Sometimes the weight sum will be zero if no usable samples can be stolen from neighbors. You may need clamps in other places too, e.g. in the BRDF or the PDF. Play around and see.
         result /= weightSum;
 
 		if(_Fireflies == 1)
