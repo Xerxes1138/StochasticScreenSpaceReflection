@@ -1,5 +1,4 @@
 /[Ll]ibrary/
-Library/
 /[Tt]emp/
 /[Oo]bj/
 /[Bb]uild/
@@ -30,3 +29,4 @@ sysinfo.txt
 *.apk
 *.unitypackage
 StochasticScreenSpaceReflection/Library
+StochasticScreenSpaceReflection/Temp
