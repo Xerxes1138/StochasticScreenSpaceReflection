@@ -28,5 +28,5 @@ sysinfo.txt
 # Builds
 *.apk
 *.unitypackage
-StochasticScreenSpaceReflection/Library
-StochasticScreenSpaceReflection/Temp
+StochasticScreenSpaceReflection/Library*
+StochasticScreenSpaceReflection/Temp*
