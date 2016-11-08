@@ -197,7 +197,7 @@ Shader "Hidden/Stochastic SSR"
             // Finally, the weight is BRDF/PDF. BRDF uses the local pixel's normal and roughness, but PDF comes from the neighbor.
 			float weight = 1.0;
 			if(_UseNormalization == 1)
-				 weight =  max(1e-5, BRDF_Unity_Weight(normalize(-viewPos) /*V*/, normalize(hitViewPos - viewPos) /*L*/, viewNormal /*N*/, roughness) / hitPDF);
+				 weight =  BRDF_Unity_Weight(normalize(-viewPos) /*V*/, normalize(hitViewPos - viewPos) /*L*/, viewNormal /*N*/, roughness) / max(1e-5, hitPDF);
 
 			float intersectionCircleRadius = coneTangent * length(hitViewPos - viewPos);
 			float mip = clamp(log2(intersectionCircleRadius * _BufferSize.y), 0.0, maxMipLevel);
@@ -213,7 +213,7 @@ Shader "Hidden/Stochastic SSR"
             weightSum += weight;
         }
 		// Sometimes the weight sum will be zero if no usable samples can be stolen from neighbors. You may need clamps in other places too, e.g. in the BRDF or the PDF. Play around and see.
-        result /= max(1e-5, weightSum);
+        result /= weightSum;
 
 		if(_Fireflies == 1)
 			result.rgb /= 1 - Luminance(result.rgb);
