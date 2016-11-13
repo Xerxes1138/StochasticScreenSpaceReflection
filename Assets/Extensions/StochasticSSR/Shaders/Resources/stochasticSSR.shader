@@ -421,7 +421,11 @@ Shader "Hidden/Stochastic SSR"
 			CGPROGRAM
 			#pragma target 3.0
 
-			#pragma exclude_renderers nomrt gles xbox360 ps3 xbox360 ps3
+			#ifdef SHADER_API_OPENGL
+       			#pragma glsl
+    		#endif
+
+			#pragma exclude_renderers nomrt xbox360 ps3 xbox360 ps3
 
 			#pragma vertex vert
 			#pragma fragment resolve
@@ -433,7 +437,11 @@ Shader "Hidden/Stochastic SSR"
 			CGPROGRAM
 			#pragma target 3.0
 
-			#pragma exclude_renderers nomrt gles xbox360 ps3 xbox360 ps3
+			#ifdef SHADER_API_OPENGL
+       			#pragma glsl
+    		#endif
+
+			#pragma exclude_renderers nomrt xbox360 ps3 xbox360 ps3
 
 			#pragma vertex vert
 			#pragma fragment frag
@@ -445,7 +453,11 @@ Shader "Hidden/Stochastic SSR"
 			CGPROGRAM
 			#pragma target 3.0
 
-			#pragma exclude_renderers nomrt gles xbox360 ps3 xbox360 ps3
+			#ifdef SHADER_API_OPENGL
+       			#pragma glsl
+    		#endif
+
+			#pragma exclude_renderers nomrt xbox360 ps3 xbox360 ps3
 
 			#pragma vertex vert
 			#pragma fragment combine
@@ -457,7 +469,11 @@ Shader "Hidden/Stochastic SSR"
 			CGPROGRAM
 			#pragma target 3.0
 
-			#pragma exclude_renderers nomrt gles xbox360 ps3 xbox360 ps3
+			#ifdef SHADER_API_OPENGL
+       			#pragma glsl
+    		#endif
+
+			#pragma exclude_renderers nomrt xbox360 ps3 xbox360 ps3
 
 			#pragma vertex vert
 			#pragma fragment rayCast
@@ -469,7 +485,11 @@ Shader "Hidden/Stochastic SSR"
 			CGPROGRAM
 			#pragma target 3.0
 
-			#pragma exclude_renderers nomrt gles xbox360 ps3
+			#ifdef SHADER_API_OPENGL
+       			#pragma glsl
+    		#endif
+
+			#pragma exclude_renderers nomrt xbox360 ps3 xbox360 ps3
 
 			#pragma vertex vert
 			#pragma fragment depth
@@ -481,7 +501,11 @@ Shader "Hidden/Stochastic SSR"
 			CGPROGRAM
 			#pragma target 3.0
 
-			#pragma exclude_renderers nomrt gles xbox360 ps3
+			#ifdef SHADER_API_OPENGL
+       			#pragma glsl
+    		#endif
+
+			#pragma exclude_renderers nomrt xbox360 ps3 xbox360 ps3
 
 			#pragma vertex vert
 			#pragma fragment temporal
@@ -493,7 +517,11 @@ Shader "Hidden/Stochastic SSR"
 			CGPROGRAM
 			#pragma target 3.0
 
-			#pragma exclude_renderers nomrt gles xbox360 ps3
+			#ifdef SHADER_API_OPENGL
+       			#pragma glsl
+    		#endif
+
+			#pragma exclude_renderers nomrt xbox360 ps3 xbox360 ps3
 
 			#pragma vertex vert
 			#pragma fragment mipMapBlur
@@ -505,7 +533,11 @@ Shader "Hidden/Stochastic SSR"
 			CGPROGRAM
 			#pragma target 3.0
 
-			#pragma exclude_renderers nomrt gles xbox360 ps3 xbox360 ps3 xbox360 ps3
+			#ifdef SHADER_API_OPENGL
+       			#pragma glsl
+    		#endif
+
+			#pragma exclude_renderers nomrt xbox360 ps3 xbox360 ps3
 
 			#pragma vertex vert
 			#pragma fragment debug
@@ -517,7 +549,11 @@ Shader "Hidden/Stochastic SSR"
 			CGPROGRAM
 			#pragma target 3.0
 
-			#pragma exclude_renderers nomrt gles xbox360 ps3 xbox360 ps3
+			#ifdef SHADER_API_OPENGL
+       			#pragma glsl
+    		#endif
+
+			#pragma exclude_renderers nomrt xbox360 ps3 xbox360 ps3
 
 			#pragma vertex vert
 			#pragma fragment recursive
