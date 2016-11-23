@@ -100,10 +100,14 @@ namespace cCharkes
 
         [Range(0.0f, 1.0f)]
         [SerializeField]
+        float response = 0.85f;
+
+        //[Range(0.0f, 1.0f)]
+        //[SerializeField]
         float minResponse = 0.85f;
 
-        [Range(0.0f, 1.0f)]
-        [SerializeField]
+        //[Range(0.0f, 1.0f)]
+        //[SerializeField]
         float maxResponse = 0.95f;
 
         [Header("General")]
@@ -318,6 +322,8 @@ namespace cCharkes
             int width = m_camera.pixelWidth;
             int height = m_camera.pixelHeight;
 
+            rendererMaterial.SetVector("_ScreenSize", new Vector2((float)width, (float)height));
+
             UpdatePrevMatrices(source, destination);
             UpdateRenderTargets(width, height);
             UpdateVariable();
@@ -377,7 +383,7 @@ namespace cCharkes
 
             RenderTexture resolvePass = CreateTempBuffer(resolveWidth, resolveHeight, 0, RenderTextureFormat.ARGBHalf);
 
-            rendererMaterial.SetVector("_BufferSize", new Vector2((float)rayWidth, (float)rayHeight));
+            rendererMaterial.SetVector("_ResolveSize", new Vector2((float)rayWidth, (float)rayHeight));
             rendererMaterial.SetInt("_MaxMipMap", maxMipMap);
 
             if (useMipMap)
@@ -417,6 +423,7 @@ namespace cCharkes
             if (useTemporal)
             {
                 rendererMaterial.SetFloat("_TScale", scale);
+                rendererMaterial.SetFloat("_TResponse", response); 
                 rendererMaterial.SetFloat("_TMinResponse", minResponse);
                 rendererMaterial.SetFloat("_TMaxResponse", maxResponse);
 

@@ -42,8 +42,9 @@ uniform sampler2D	_CameraDepthBuffer;
 uniform sampler2D_half _CameraMotionVectorsTexture;
 
 uniform float4		_MainTex_TexelSize;
-uniform float4		_BufferSize;
+uniform float4		_ScreenSize;
 uniform	float4		_RayCastSize;
+uniform	float4		_ResolveSize;
 uniform	float4		_NoiseSize;
 uniform float4		_Project;
 uniform float4		_GaussianDir;
@@ -54,6 +55,7 @@ uniform float		_BRDFBias;
 uniform float		_TScale;
 uniform float		_TMinResponse;
 uniform float		_TMaxResponse;
+uniform float		_TResponse;
 uniform float		_StepSize;
 uniform float		_Accumulation;
 uniform int			_NumSteps;
