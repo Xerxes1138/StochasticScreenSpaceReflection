@@ -217,7 +217,7 @@ Shader "Hidden/Stochastic SSR"
 		if(_Fireflies == 1)
 			result.rgb /= 1 - Luminance(result.rgb);
 
-    	return result;
+    	return max(1e-5, result);
 	}
 
 	void rayCast ( VertexOutput i, 	out half4 outRayCast : SV_Target0, out half4 outRayCastMask : SV_Target1) 
