@@ -63,6 +63,7 @@ namespace cCharkes
 
         [Range(1, 100)]
         [SerializeField]
+        int rayDistance = 70; // Good range is 70-80
 
         [Range(0.0f, 1.0f)]
         [SerializeField]
