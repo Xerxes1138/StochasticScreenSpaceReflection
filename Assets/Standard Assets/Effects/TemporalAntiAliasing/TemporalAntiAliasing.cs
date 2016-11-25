@@ -4,7 +4,6 @@ using UnityEngine.Rendering;
 
 namespace UnityStandardAssets.CinematicEffects
 {
-    [ExecuteInEditMode]
     [RequireComponent(typeof(Camera))]
     [AddComponentMenu("Image Effects/Cinematic/Temporal Anti-aliasing")]
     public class TemporalAntiAliasing : MonoBehaviour

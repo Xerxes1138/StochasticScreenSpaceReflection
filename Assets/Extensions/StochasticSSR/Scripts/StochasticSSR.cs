@@ -47,6 +47,10 @@ namespace cCharkes
         Jitter,
     };
 
+    [ExecuteInEditMode]
+#if UNITY_5_4_OR_NEWER
+    [ImageEffectAllowedInSceneView]
+#endif
     [RequireComponent(typeof(Camera))]
     [AddComponentMenu("cCharkes/Image Effects/Rendering/Stochastic Screen Space Reflection")]
     public class StochasticSSR : MonoBehaviour
@@ -149,7 +153,11 @@ namespace cCharkes
         {
             noise = Resources.Load("tex_BlueNoise_256x256_UNI") as Texture2D; 
             m_camera = GetComponent<Camera>();
-            m_camera.depthTextureMode |= DepthTextureMode.Depth | DepthTextureMode.MotionVectors;
+
+            if(Application.isPlaying)
+                m_camera.depthTextureMode |= DepthTextureMode.Depth | DepthTextureMode.MotionVectors;
+            else
+                m_camera.depthTextureMode = DepthTextureMode.Depth;
         }
 
         static Material m_rendererMaterial = null;
@@ -330,8 +338,11 @@ namespace cCharkes
 
             int rayWidth = width / (int)rayMode;
             int rayHeight = height / (int)rayMode;
-            Vector4 project = new Vector4(width, height, m_camera.nearClipPlane / (m_camera.nearClipPlane - m_camera.farClipPlane), 0.0f);
+
+            Vector4 project = new Vector4(rayWidth, rayHeight, m_camera.nearClipPlane / (m_camera.nearClipPlane - m_camera.farClipPlane), 0.0f);
+
             rendererMaterial.SetVector("_Project", project);
+
             rendererMaterial.SetVector("_RayCastSize", new Vector2((float)rayWidth, (float)rayHeight));
 
             RenderTexture rayCast = CreateTempBuffer(rayWidth, rayHeight, 0, RenderTextureFormat.ARGBHalf);
@@ -374,6 +385,7 @@ namespace cCharkes
             renderBuffer[0] = rayCast.colorBuffer;
             renderBuffer[1] = rayCastMask.colorBuffer;
             Graphics.SetRenderTarget(renderBuffer, rayCast.depthBuffer);
+            //Graphics.Blit(null, rendererMaterial, 3);
             rendererMaterial.SetPass(3);
             DrawFullScreenQuad();
             //
@@ -407,6 +419,7 @@ namespace cCharkes
                 }
 
                 Graphics.Blit(mipMapBuffer2, resolvePass, rendererMaterial, 0); // Resolve pass using mip map buffer
+
             }
             else
             {

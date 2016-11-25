@@ -2,6 +2,15 @@
 
 ![SSSR](https://dl.dropboxusercontent.com/u/1812933/Unity/SSSR.png)
 
+# Features
+
+* Contact hardening
+* Specular elongation
+* Sharp and blurry reflection
+* Per-pixel roughness and normal
+* Previous frame reprojection giving one free bounce reflection.
+* Convolved scene buffer mip chain.
+
 # Requirements
 
 Unity 5.4 and a shader model 3.0 ( dx9 ) graphic card.

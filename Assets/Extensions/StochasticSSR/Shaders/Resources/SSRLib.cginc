@@ -37,7 +37,7 @@ uniform sampler2D	_CameraGBufferTexture0,
 					_CameraGBufferTexture2,
 					_CameraReflectionsTexture;
 	
-uniform sampler2D	_CameraDepthTexture;
+uniform sampler2D	_CameraDepthTexture; // Unity depth
 uniform sampler2D	_CameraDepthBuffer;
 uniform sampler2D_half _CameraMotionVectorsTexture;
 
@@ -173,4 +173,3 @@ float RayAttenBorder (float2 pos, float value)
 	float borderDist = min(1.0 - max(pos.x, pos.y), min(pos.x, pos.y));
 	return saturate(borderDist > value ? 1.0 : borderDist / value);
 }
-

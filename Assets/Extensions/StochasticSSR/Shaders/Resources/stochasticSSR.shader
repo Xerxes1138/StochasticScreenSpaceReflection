@@ -199,8 +199,8 @@ Shader "Hidden/Stochastic SSR"
 			if(_UseNormalization == 1)
 				 weight =  BRDF_Unity_Weight(normalize(-viewPos) /*V*/, normalize(hitViewPos - viewPos) /*L*/, viewNormal /*N*/, roughness) / max(1e-5, hitPDF);
 
-			float intersectionCircleRadius = coneTangent * length(hitViewPos - viewPos);
-			float mip = clamp(log2(intersectionCircleRadius * _ResolveSize.y), 0.0, maxMipLevel);
+			float intersectionCircleRadius = coneTangent * length(hitUv - uv);
+			float mip = clamp(log2(intersectionCircleRadius * max(_ResolveSize.x, _ResolveSize.y)), 0.0, maxMipLevel);
 
 			float4 sampleColor = float4(0.0,0.0,0.0,1.0);
 			sampleColor.rgb = tex2Dlod(_MainTex, float4(hitUv, 0.0, mip)).rgb;
@@ -217,7 +217,7 @@ Shader "Hidden/Stochastic SSR"
 		if(_Fireflies == 1)
 			result.rgb /= 1 - Luminance(result.rgb);
 
-    	return max(1e-5, result);
+    	return  max(1e-5, result);
 	}
 
 	void rayCast ( VertexOutput i, 	out half4 outRayCast : SV_Target0, out half4 outRayCastMask : SV_Target1) 

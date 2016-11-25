@@ -29,4 +29,5 @@ sysinfo.txt
 *.apk
 //*.unitypackage
 /Library*
+/Assets/ProCore*
 /Temp*
