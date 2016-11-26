@@ -47,10 +47,14 @@ namespace cCharkes
         Jitter,
     };
 
-    [ExecuteInEditMode]
-#if UNITY_5_4_OR_NEWER
-    [ImageEffectAllowedInSceneView]
-#endif
+    // Too much broken
+    /*[ExecuteInEditMode]
+
+    #if UNITY_5_4_OR_NEWER
+        [ImageEffectAllowedInSceneView]
+    #endif
+    */
+
     [RequireComponent(typeof(Camera))]
     [AddComponentMenu("cCharkes/Image Effects/Rendering/Stochastic Screen Space Reflection")]
     public class StochasticSSR : MonoBehaviour
@@ -141,6 +145,7 @@ namespace cCharkes
         private Matrix4x4 prevViewProjectionMatrix;
 
         RenderTexture temporalBuffer;
+        RenderTexture mainBuffer0, mainBuffer1;
         RenderTexture mipMapBuffer0, mipMapBuffer1, mipMapBuffer2;
 
         RenderBuffer[] renderBuffer = new RenderBuffer[2];
@@ -154,10 +159,10 @@ namespace cCharkes
             noise = Resources.Load("tex_BlueNoise_256x256_UNI") as Texture2D; 
             m_camera = GetComponent<Camera>();
 
-            if(Application.isPlaying)
+            //if(Application.isPlaying)
                 m_camera.depthTextureMode |= DepthTextureMode.Depth | DepthTextureMode.MotionVectors;
-            else
-                m_camera.depthTextureMode = DepthTextureMode.Depth;
+            //else
+                //m_camera.depthTextureMode = DepthTextureMode.Depth;
         }
 
         static Material m_rendererMaterial = null;
@@ -203,6 +208,14 @@ namespace cCharkes
                 temporalBuffer = null;
             }
 
+            if (mainBuffer0 != null || mainBuffer1 != null)
+            {
+                mainBuffer0.Release();
+                mainBuffer0 = null;
+                mainBuffer1.Release();
+                mainBuffer1 = null;
+            }
+
             if (mipMapBuffer0 != null)
             {
                 mipMapBuffer0.Release();
@@ -221,6 +234,12 @@ namespace cCharkes
             {
                 temporalBuffer = CreateRenderTexture(width, height, 0, RenderTextureFormat.ARGBHalf, false, false, FilterMode.Bilinear);
 
+            }
+
+            if (mainBuffer0 == null || !mainBuffer0.IsCreated())
+            {
+                mainBuffer0 = CreateRenderTexture(width, height, 0, RenderTextureFormat.DefaultHDR, false, false, FilterMode.Bilinear);
+                mainBuffer1 = CreateRenderTexture(width, height, 0, RenderTextureFormat.DefaultHDR, false, false, FilterMode.Bilinear);
             }
 
             if (mipMapBuffer0 == null || !mipMapBuffer0.IsCreated())
@@ -330,20 +349,25 @@ namespace cCharkes
             int width = m_camera.pixelWidth;
             int height = m_camera.pixelHeight;
 
+            int rayWidth = width / (int)rayMode;
+            int rayHeight = height / (int)rayMode;
+
+            int resolveWidth = width / (int)resolveMode;
+            int resolveHeight = height / (int)resolveMode;
+
             rendererMaterial.SetVector("_ScreenSize", new Vector2((float)width, (float)height));
+            rendererMaterial.SetVector("_RayCastSize", new Vector2((float)rayWidth, (float)rayHeight));
+            rendererMaterial.SetVector("_ResolveSize", new Vector2((float)resolveWidth, (float)resolveHeight));
 
             UpdatePrevMatrices(source, destination);
             UpdateRenderTargets(width, height);
             UpdateVariable();
 
-            int rayWidth = width / (int)rayMode;
-            int rayHeight = height / (int)rayMode;
-
             Vector4 project = new Vector4(rayWidth, rayHeight, m_camera.nearClipPlane / (m_camera.nearClipPlane - m_camera.farClipPlane), 0.0f);
 
             rendererMaterial.SetVector("_Project", project);
 
-            rendererMaterial.SetVector("_RayCastSize", new Vector2((float)rayWidth, (float)rayHeight));
+ 
 
             RenderTexture rayCast = CreateTempBuffer(rayWidth, rayHeight, 0, RenderTextureFormat.ARGBHalf);
             RenderTexture rayCastMask = CreateTempBuffer(rayWidth, rayHeight, 0, RenderTextureFormat.RHalf);
@@ -359,11 +383,10 @@ namespace cCharkes
             Graphics.SetRenderTarget(depthBuffer);
             rendererMaterial.SetPass(4);
             DrawFullScreenQuad();
-            ReleaseTempBuffer(depthBuffer);
             //
 
-            RenderTexture mainBuffer0 = CreateTempBuffer(width, height, 0, RenderTextureFormat.ARGBHalf);
-            RenderTexture mainBuffer1 = CreateTempBuffer(width, height, 0, RenderTextureFormat.ARGBHalf);
+            //RenderTexture mainBuffer0 = CreateTempBuffer(width, height, 0, RenderTextureFormat.ARGBHalf);
+           // RenderTexture mainBuffer1 = CreateTempBuffer(width, height, 0, RenderTextureFormat.ARGBHalf);
 
             switch (debugPass)
             {
@@ -390,19 +413,15 @@ namespace cCharkes
             DrawFullScreenQuad();
             //
 
-            int resolveWidth = width / (int)resolveMode;
-            int resolveHeight = height / (int)resolveMode;
+            ReleaseTempBuffer(depthBuffer);
 
             RenderTexture resolvePass = CreateTempBuffer(resolveWidth, resolveHeight, 0, RenderTextureFormat.ARGBHalf);
 
-            rendererMaterial.SetVector("_ResolveSize", new Vector2((float)rayWidth, (float)rayHeight));
-            rendererMaterial.SetInt("_MaxMipMap", maxMipMap);
-
             if (useMipMap)
             {
-                Graphics.Blit(mainBuffer0, mipMapBuffer0); // Copy the source frame buffer to the mip map buffer
+                rendererMaterial.SetInt("_MaxMipMap", maxMipMap);
 
-                ReleaseTempBuffer(mainBuffer0);
+                Graphics.Blit(mainBuffer0, mipMapBuffer0); // Copy the source frame buffer to the mip map buffer
 
                 for (int i = 0; i < maxMipMap; i++)
                 {
@@ -420,12 +439,13 @@ namespace cCharkes
 
                 Graphics.Blit(mipMapBuffer2, resolvePass, rendererMaterial, 0); // Resolve pass using mip map buffer
 
+                //ReleaseTempBuffer(mainBuffer0);
             }
             else
             {
                 Graphics.Blit(mainBuffer0, resolvePass, rendererMaterial, 0); // Resolve pass without mip map buffer
 
-                ReleaseTempBuffer(mainBuffer0);
+                //ReleaseTempBuffer(mainBuffer0);
             }
 
             rendererMaterial.SetTexture("_ReflectionBuffer", resolvePass);
@@ -470,7 +490,7 @@ namespace cCharkes
                     break;
             }
 
-            ReleaseTempBuffer(mainBuffer1);
+            //ReleaseTempBuffer(mainBuffer1);
 
             ReleaseTempBuffer(resolvePass);
 

@@ -83,7 +83,7 @@ float4 RayMarch(sampler2D tex, float4x4 _ProjectionMatrix, float3 viewDir, int N
 	{
 		float sampleDepth  = LinearEyeDepth(UNITY_SAMPLE_DEPTH(tex2Dlod (tex, float4(samplePos.xy,0,0))));
 				
-		float thickness = LinearEyeDepth(project.z) / depth;
+		float thickness = 0.1; //LinearEyeDepth(project.z) / depth;
 		float delta = LinearEyeDepth(samplePos.z) - sampleDepth;
 
 		if ( sampleDepth < LinearEyeDepth(samplePos.z) )
