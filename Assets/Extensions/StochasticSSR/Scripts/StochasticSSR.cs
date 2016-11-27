@@ -48,12 +48,12 @@ namespace cCharkes
     };
 
     // Too much broken
-    /*[ExecuteInEditMode]
+    [ExecuteInEditMode]
 
     #if UNITY_5_4_OR_NEWER
         [ImageEffectAllowedInSceneView]
     #endif
-    */
+    
 
     [RequireComponent(typeof(Camera))]
     [AddComponentMenu("cCharkes/Image Effects/Rendering/Stochastic Screen Space Reflection")]
@@ -159,10 +159,10 @@ namespace cCharkes
             noise = Resources.Load("tex_BlueNoise_256x256_UNI") as Texture2D; 
             m_camera = GetComponent<Camera>();
 
-            //if(Application.isPlaying)
+            if(Application.isPlaying)
                 m_camera.depthTextureMode |= DepthTextureMode.Depth | DepthTextureMode.MotionVectors;
-            //else
-                //m_camera.depthTextureMode = DepthTextureMode.Depth;
+            else
+                m_camera.depthTextureMode = DepthTextureMode.Depth;
         }
 
         static Material m_rendererMaterial = null;
@@ -276,7 +276,7 @@ namespace cCharkes
 
             if (!useTemporal)
                 rendererMaterial.SetInt("_UseTemporal", 0);
-            else
+            else if(useTemporal && Application.isPlaying)
                 rendererMaterial.SetInt("_UseTemporal", 1);
 
             if (!reduceFireflies)
@@ -367,8 +367,6 @@ namespace cCharkes
 
             rendererMaterial.SetVector("_Project", project);
 
- 
-
             RenderTexture rayCast = CreateTempBuffer(rayWidth, rayHeight, 0, RenderTextureFormat.ARGBHalf);
             RenderTexture rayCastMask = CreateTempBuffer(rayWidth, rayHeight, 0, RenderTextureFormat.RHalf);
             RenderTexture depthBuffer = CreateTempBuffer(width / (int)depthMode, height / (int)depthMode, 0, RenderTextureFormat.RFloat);
@@ -385,9 +383,6 @@ namespace cCharkes
             DrawFullScreenQuad();
             //
 
-            //RenderTexture mainBuffer0 = CreateTempBuffer(width, height, 0, RenderTextureFormat.ARGBHalf);
-           // RenderTexture mainBuffer1 = CreateTempBuffer(width, height, 0, RenderTextureFormat.ARGBHalf);
-
             switch (debugPass)
             {
                 case SSRDebugPass.Reflection:
@@ -400,7 +395,10 @@ namespace cCharkes
                     Graphics.Blit(source, mainBuffer0, rendererMaterial, 1);
                     break;
                 case SSRDebugPass.Combine:
-                    Graphics.Blit(mainBuffer1, mainBuffer0, rendererMaterial, 8);
+                    if(Application.isPlaying)
+                        Graphics.Blit(mainBuffer1, mainBuffer0, rendererMaterial, 8);
+                    else
+                        Graphics.Blit(source, mainBuffer0, rendererMaterial, 1);
                     break;
             }
 
@@ -453,7 +451,7 @@ namespace cCharkes
             ReleaseTempBuffer(rayCast);
             ReleaseTempBuffer(rayCastMask);
 
-            if (useTemporal)
+            if (useTemporal && Application.isPlaying)
             {
                 rendererMaterial.SetFloat("_TScale", scale);
                 rendererMaterial.SetFloat("_TResponse", response); 
@@ -485,12 +483,15 @@ namespace cCharkes
                     Graphics.Blit(source, destination, rendererMaterial, 2);
                     break;
                 case SSRDebugPass.Combine:
-                    Graphics.Blit(source, mainBuffer1, rendererMaterial, 2);
-                    Graphics.Blit(mainBuffer1, destination);
+                    if (Application.isPlaying)
+                    {
+                        Graphics.Blit(source, mainBuffer1, rendererMaterial, 2);
+                        Graphics.Blit(mainBuffer1, destination);
+                    }
+                    else
+                        Graphics.Blit(source, destination, rendererMaterial, 2);
                     break;
             }
-
-            //ReleaseTempBuffer(mainBuffer1);
 
             ReleaseTempBuffer(resolvePass);
 
