@@ -127,8 +127,10 @@ Shader "Hidden/Stochastic SSR"
 		float unbiasedWeightSqr = sqr(unbiasedWeight);
 
 		float response = lerp(_TMinResponse, _TMaxResponse, unbiasedWeightSqr);*/
+		
+		half motion = 1.0 - saturate(length(velocity) * 8.0);
 
-    	reflection = lerp(current, previous, _TResponse);
+    	reflection = lerp(current, previous, _TResponse * motion);
 	}
 
 	float4 resolve ( VertexOutput i ) : SV_Target
@@ -198,7 +200,8 @@ Shader "Hidden/Stochastic SSR"
             // Finally, the weight is BRDF/PDF. BRDF uses the local pixel's normal and roughness, but PDF comes from the neighbor.
 			float weight = 1.0;
 			if(_UseNormalization == 1)
-				 weight =  BRDF_Unity_Weight(normalize(-viewPos) /*V*/, normalize(hitViewPos - viewPos) /*L*/, viewNormal /*N*/, roughness) / max(1e-5, hitPDF);
+				 //weight =  BRDF_Unity_Weight(normalize(-viewPos) /*V*/, normalize(hitViewPos - viewPos) /*L*/, viewNormal /*N*/, roughness) / max(1e-5, hitPDF);
+				 weight = saturate(dot(viewNormal /*N*/, normalize(hitViewPos - viewPos) /*L*/)) / max(1e-5, hitPDF);
 
 			float intersectionCircleRadius = coneTangent * length(hitUv - uv);
 			float mip = clamp(log2(intersectionCircleRadius * max(_ResolveSize.x, _ResolveSize.y)), 0.0, maxMipLevel);
@@ -243,7 +246,7 @@ Shader "Hidden/Stochastic SSR"
 
 		Xi.y = lerp(Xi.y, 0.0, _BRDFBias);
 
-		float4 H = TangentToWorld(viewNormal, ImportanceSampleGGX(Xi, roughness));
+		float4 H = TangentToWorld(viewNormal, CosineSampleHemisphere(Xi) /*ImportanceSampleGGX(Xi, roughness)*/);
 		float3 dir = reflect(normalize(viewPos), H.xyz);
 
 		jitter += 0.5f;
@@ -305,6 +308,7 @@ Shader "Hidden/Stochastic SSR"
 
 		float3 cubemap = GetCubeMap (uv);
 		float4 worldNormal = GetNormal (uv);
+		float2 velocity = GetVelocity(uv);
 
 		float4 diffuse =  GetAlbedo(uv);
 		float occlusion = diffuse.a;
@@ -314,14 +318,14 @@ Shader "Hidden/Stochastic SSR"
 		float4 sceneColor = tex2D(_MainTex,  uv);
 		sceneColor.rgb = max(1e-5, sceneColor.rgb - cubemap.rgb);
 
-		float4 reflection = GetSampleColor(_ReflectionBuffer, uv);
+		float4 resolve = GetSampleColor(_ReflectionBuffer, uv);
 
 		float3 viewDir = GetViewDir(worldPos);
 		float NdotV = saturate(dot(worldNormal, -viewDir));
 
 		float3 reflDir = normalize( reflect( -viewDir, worldNormal ) );
 		float fade = saturate(dot(-viewDir, reflDir) * 2.0);
-		float mask = sqr(reflection.a) * fade;
+		float mask = 1.0 /*sqr(resolve.a) * fade*/;
 
 		float oneMinusReflectivity;
 		diffuse.rgb = EnergyConservationBetweenDiffuseAndSpecular(diffuse, specular.rgb, oneMinusReflectivity);
@@ -332,26 +336,26 @@ Shader "Hidden/Stochastic SSR"
         light.ndotl = 0;
 
         UnityIndirect ind;
-        ind.diffuse = 0;
-        ind.specular = reflection;
+        ind.diffuse = resolve;
+        ind.specular = 0.0/*resolve*/;
 
 		if(_UseFresnel == 1)													
-			reflection.rgb = UNITY_BRDF_PBS (0, specular.rgb, oneMinusReflectivity, 1-roughness, worldNormal, -viewDir, light, ind).rgb;
+			resolve.rgb = UNITY_BRDF_PBS (diffuse.rgb, specular.rgb, oneMinusReflectivity, 1-roughness, worldNormal, -viewDir, light, ind).rgb;
 
-		reflection.rgb *= occlusion;
+		resolve.rgb *= occlusion;
 
 		if(_DebugPass == 0)
-			sceneColor.rgb += lerp(cubemap.rgb, reflection.rgb, mask); // Combine reflection and cubemap and add it to the scene color 
+			sceneColor.rgb += resolve.rgb + cubemap.rgb/*lerp(cubemap.rgb, resolve.rgb, mask)*/; // Combine resolve and cubemap and add it to the scene color 
 		else if(_DebugPass == 1)
-			sceneColor.rgb = reflection.rgb * mask;
+			sceneColor.rgb = resolve.rgb * mask;
 		else if(_DebugPass == 2)
 			sceneColor.rgb = cubemap;
 		else if(_DebugPass == 3)
-			sceneColor.rgb = lerp(cubemap.rgb, reflection.rgb, mask);
+			sceneColor.rgb = lerp(cubemap.rgb, resolve.rgb, mask);
 		else if(_DebugPass == 4)
 			sceneColor = mask;
 		else if(_DebugPass == 5)
-			sceneColor.rgb += lerp(0.0, reflection.rgb, mask);
+			sceneColor.rgb += lerp(0.0, resolve.rgb, mask);
 		else if(_DebugPass == 6)
 			sceneColor.rgb = GetSampleColor(_RayCast, uv);
 		else if(_DebugPass == 7)
@@ -365,6 +369,10 @@ Shader "Hidden/Stochastic SSR"
 			sceneColor.rg = jitter;
 			sceneColor.b = 0;
 		}
+
+		half motion = 1.0 - saturate(length(velocity)*8);
+
+		//sceneColor.rgb = motion;
 
 		return sceneColor;
 	}

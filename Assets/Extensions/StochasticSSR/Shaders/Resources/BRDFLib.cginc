@@ -82,6 +82,22 @@ float4 TangentToWorld(float3 N, float4 H)
 	return float4((T * H.x) + (B * H.y) + (N * H.z), H.w);
 }
 
+float4 CosineSampleHemisphere( float2 E )
+{
+	float Phi = 2 * PI * E.x;
+	float CosTheta = sqrt( E.y );
+	float SinTheta = sqrt( 1 - CosTheta * CosTheta );
+
+	float3 H;
+	H.x = SinTheta * cos( Phi );
+	H.y = SinTheta * sin( Phi );
+	H.z = CosTheta;
+
+	float PDF = CosTheta / PI;
+
+	return float4( H, PDF );
+}
+
 // Brian Karis, Epic Games "Real Shading in Unreal Engine 4"
 float4 ImportanceSampleGGX(float2 Xi, float Roughness)
 {
