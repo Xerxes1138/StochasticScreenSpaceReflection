@@ -48,12 +48,12 @@ namespace cCharkes
     };
 
     // Too much broken
-    [ExecuteInEditMode]
+    /*[ExecuteInEditMode]
 
     #if UNITY_5_4_OR_NEWER
         [ImageEffectAllowedInSceneView]
-    #endif
-    
+    #endif*/
+
 
     [RequireComponent(typeof(Camera))]
     [AddComponentMenu("cCharkes/Image Effects/Rendering/Stochastic Screen Space Reflection")]
@@ -67,11 +67,15 @@ namespace cCharkes
         ResolutionMode rayMode = ResolutionMode.halfRes;
 
         //[SerializeField]
-        FilterMode rayFilterMode = FilterMode.Bilinear;
+        FilterMode rayFilterMode = FilterMode.Point;
 
         [Range(1, 100)]
         [SerializeField]
         int rayDistance = 70; // Good range is 70-80
+
+        //[Range(0.00001f, 1.0f)]
+        //[SerializeField]
+        float thickness = 0.1f;
 
         [Range(0.0f, 1.0f)]
         [SerializeField]
@@ -134,38 +138,43 @@ namespace cCharkes
 
         public SSRDebugPass debugPass = SSRDebugPass.Combine;
 
-        Camera m_camera;
-
+        private Camera m_camera;
         private Matrix4x4 projectionMatrix;
         private Matrix4x4 viewProjectionMatrix;
         private Matrix4x4 inverseViewProjectionMatrix;
         private Matrix4x4 worldToCameraMatrix;
         private Matrix4x4 cameraToWorldMatrix;
-   
+
         private Matrix4x4 prevViewProjectionMatrix;
 
-        RenderTexture temporalBuffer;
-        RenderTexture mainBuffer0, mainBuffer1;
-        RenderTexture mipMapBuffer0, mipMapBuffer1, mipMapBuffer2;
+        private RenderTexture temporalBuffer;
+        private RenderTexture mainBuffer0, mainBuffer1;
+        private RenderTexture mipMapBuffer0, mipMapBuffer1, mipMapBuffer2;
 
-        RenderBuffer[] renderBuffer = new RenderBuffer[2];
+        private RenderBuffer[] renderBuffer = new RenderBuffer[2];
 
-        float[] dist = new float[5] { 1.0f / 1024.0f, 1.0f / 256.0f, 1.0f / 128.0f, 1.0f / 64.0f, 1.0f / 32.0f };
+        private Vector4 project;
 
-        int[] mipLevel = new int[5] { 0, 2, 3, 4, 5 };
+        private Vector2[] dirX = new Vector2[5];
 
-        void Awake()
+        private Vector2[] dirY = new Vector2[5];
+
+        private int[] mipLevel = new int[5] { 0, 2, 3, 4, 5 };
+
+        private Vector2 jitterSample;
+
+        private void Awake()
         {
-            noise = Resources.Load("tex_BlueNoise_256x256_UNI") as Texture2D; 
+            noise = Resources.Load("tex_BlueNoise_1024x1024_UNI") as Texture2D;
             m_camera = GetComponent<Camera>();
 
-            if(Application.isPlaying)
+            if (Application.isPlaying)
                 m_camera.depthTextureMode |= DepthTextureMode.Depth | DepthTextureMode.MotionVectors;
             else
                 m_camera.depthTextureMode = DepthTextureMode.Depth;
         }
 
-        static Material m_rendererMaterial = null;
+        private static Material m_rendererMaterial = null;
         protected Material rendererMaterial
         {
             get
@@ -184,22 +193,22 @@ namespace cCharkes
             RenderTexture r = new RenderTexture(w, h, d, f);
             r.filterMode = filterMode;
             r.useMipMap = useMipMap;
-            r.generateMips = generateMipMap;
+            r.autoGenerateMips = generateMipMap;
             r.Create();
             return r;
         }
 
-        void OnDestroy()
+        private void OnDestroy()
         {
             Object.DestroyImmediate(rendererMaterial);
         }
 
-        void OnDisable()
+        private void OnDisable()
         {
             ReleaseRenderTargets();
         }
 
-        void ReleaseRenderTargets()
+        private void ReleaseRenderTargets()
         {
 
             if (temporalBuffer != null)
@@ -223,7 +232,7 @@ namespace cCharkes
             }
         }
 
-        void UpdateRenderTargets(int width, int height)
+        private void UpdateRenderTargets(int width, int height)
         {
             if (temporalBuffer != null && temporalBuffer.width != width)
             {
@@ -232,7 +241,7 @@ namespace cCharkes
 
             if (temporalBuffer == null || !temporalBuffer.IsCreated())
             {
-                temporalBuffer = CreateRenderTexture(width, height, 0, RenderTextureFormat.ARGBHalf, false, false, FilterMode.Bilinear);
+                temporalBuffer = CreateRenderTexture(width, height, 0, RenderTextureFormat.DefaultHDR, false, false, FilterMode.Bilinear);
 
             }
 
@@ -244,13 +253,13 @@ namespace cCharkes
 
             if (mipMapBuffer0 == null || !mipMapBuffer0.IsCreated())
             {
-                mipMapBuffer0 = CreateRenderTexture(1024, 1024, 0, RenderTextureFormat.DefaultHDR, true, true, FilterMode.Bilinear); // Need to be power of two
-                mipMapBuffer1 = CreateRenderTexture(1024, 1024, 0, RenderTextureFormat.DefaultHDR, true, true, FilterMode.Bilinear); // Need to be power of two
-                mipMapBuffer2 = CreateRenderTexture(1024, 1024, 0, RenderTextureFormat.DefaultHDR, true, false, FilterMode.Bilinear); // Need to be power of two
+                mipMapBuffer0 = CreateRenderTexture(width, height, 0, RenderTextureFormat.DefaultHDR, true, true, FilterMode.Bilinear); // Need to be power of two
+                mipMapBuffer1 = CreateRenderTexture(width, height, 0, RenderTextureFormat.DefaultHDR, true, true, FilterMode.Bilinear); // Need to be power of two
+                mipMapBuffer2 = CreateRenderTexture(width, height, 0, RenderTextureFormat.DefaultHDR, true, false, FilterMode.Bilinear); // Need to be power of two
             }
         }
 
-        void UpdateVariable()
+        private void UpdateVariable()
         {
             rendererMaterial.SetTexture("_Noise", noise);
             rendererMaterial.SetVector("_NoiseSize", new Vector2(noise.width, noise.height));
@@ -258,6 +267,8 @@ namespace cCharkes
             rendererMaterial.SetFloat("_SmoothnessRange", smoothnessRange);
             rendererMaterial.SetFloat("_EdgeFactor", screenFadeSize);
             rendererMaterial.SetInt("_NumSteps", rayDistance);
+            rendererMaterial.SetFloat("_Thickness", thickness);
+
 
             if (!rayReuse)
                 rendererMaterial.SetInt("_RayReuse", 0);
@@ -276,7 +287,7 @@ namespace cCharkes
 
             if (!useTemporal)
                 rendererMaterial.SetInt("_UseTemporal", 0);
-            else if(useTemporal && Application.isPlaying)
+            else if (useTemporal && Application.isPlaying)
                 rendererMaterial.SetInt("_UseTemporal", 1);
 
             if (!reduceFireflies)
@@ -313,12 +324,17 @@ namespace cCharkes
             }
         }
 
-        void UpdatePrevMatrices(RenderTexture source, RenderTexture destination)
+        private void UpdatePrevMatrices(RenderTexture source, RenderTexture destination)
         {
             worldToCameraMatrix = m_camera.worldToCameraMatrix;
             cameraToWorldMatrix = worldToCameraMatrix.inverse;
 
+#if UNITY_5_4_OR_NEWER
+            m_camera.nonJitteredProjectionMatrix = GL.GetGPUProjectionMatrix(m_camera.projectionMatrix, false);
+#endif
+
             projectionMatrix = GL.GetGPUProjectionMatrix(m_camera.projectionMatrix, false);
+
             viewProjectionMatrix = projectionMatrix * worldToCameraMatrix;
             inverseViewProjectionMatrix = viewProjectionMatrix.inverse;
 
@@ -333,18 +349,60 @@ namespace cCharkes
             rendererMaterial.SetMatrix("_PrevInverseViewProjectionMatrix", prevViewProjectionMatrix * Matrix4x4.Inverse(viewProjectionMatrix));
         }
 
-        RenderTexture CreateTempBuffer(int x, int y, int depth, RenderTextureFormat format)
+        private RenderTexture CreateTempBuffer(int x, int y, int depth, RenderTextureFormat format)
         {
             return RenderTexture.GetTemporary(x, y, depth, format);
         }
 
-        void ReleaseTempBuffer(RenderTexture rt)
+        private void ReleaseTempBuffer(RenderTexture rt)
         {
             RenderTexture.ReleaseTemporary(rt);
         }
 
+        // From Unity TAA
+        private int m_SampleIndex = 0;
+        private const int k_SampleCount = 64;
+
+        private float GetHaltonValue(int index, int radix)
+        {
+            float result = 0f;
+            float fraction = 1f / (float)radix;
+
+            while (index > 0)
+            {
+                result += (float)(index % radix) * fraction;
+
+                index /= radix;
+                fraction /= (float)radix;
+            }
+
+            return result;
+        }
+
+        private Vector2 GenerateRandomOffset()
+        {
+            var offset = new Vector2(
+                    GetHaltonValue(m_SampleIndex & 1023, 2),
+                    GetHaltonValue(m_SampleIndex & 1023, 3));
+
+            if (++m_SampleIndex >= k_SampleCount)
+                m_SampleIndex = 0;
+
+            return offset;
+        }
+        //
+
+        private void OnPreCull()
+        {
+            jitterSample = GenerateRandomOffset();
+        }
+
+        /*
+        Any Image Effect with this attribute will be rendered after opaque geometry but before transparent geometry.
+        This allows for effects which extensively use the depth buffer (SSAO, etc) to affect only opaque pixels. This attribute can be used to reduce the amount of visual artifacts in a scene with post processing.
+        */
         [ImageEffectOpaque]
-        void OnRenderImage(RenderTexture source, RenderTexture destination)
+        private void OnRenderImage(RenderTexture source, RenderTexture destination)
         {
             int width = m_camera.pixelWidth;
             int height = m_camera.pixelHeight;
@@ -355,6 +413,16 @@ namespace cCharkes
             int resolveWidth = width / (int)resolveMode;
             int resolveHeight = height / (int)resolveMode;
 
+            rendererMaterial.SetVector("_JitterSizeAndOffset",
+            new Vector4
+                (
+                    (float)rayWidth / (float)noise.width,
+                    (float)rayHeight / (float)noise.height,
+                    jitterSample.x,
+                    jitterSample.y
+                )
+            );
+
             rendererMaterial.SetVector("_ScreenSize", new Vector2((float)width, (float)height));
             rendererMaterial.SetVector("_RayCastSize", new Vector2((float)rayWidth, (float)rayHeight));
             rendererMaterial.SetVector("_ResolveSize", new Vector2((float)resolveWidth, (float)resolveHeight));
@@ -363,7 +431,7 @@ namespace cCharkes
             UpdateRenderTargets(width, height);
             UpdateVariable();
 
-            Vector4 project = new Vector4(rayWidth, rayHeight, m_camera.nearClipPlane / (m_camera.nearClipPlane - m_camera.farClipPlane), 0.0f);
+            project = new Vector4(Mathf.Abs(m_camera.projectionMatrix.m00 * 0.5f), Mathf.Abs(m_camera.projectionMatrix.m11 * 0.5f), ((m_camera.farClipPlane * m_camera.nearClipPlane) / (m_camera.nearClipPlane - m_camera.farClipPlane)) * 0.5f, 0.0f);
 
             rendererMaterial.SetVector("_Project", project);
 
@@ -395,7 +463,7 @@ namespace cCharkes
                     Graphics.Blit(source, mainBuffer0, rendererMaterial, 1);
                     break;
                 case SSRDebugPass.Combine:
-                    if(Application.isPlaying)
+                    if (Application.isPlaying)
                         Graphics.Blit(mainBuffer1, mainBuffer0, rendererMaterial, 8);
                     else
                         Graphics.Blit(source, mainBuffer0, rendererMaterial, 1);
@@ -413,21 +481,34 @@ namespace cCharkes
 
             ReleaseTempBuffer(depthBuffer);
 
-            RenderTexture resolvePass = CreateTempBuffer(resolveWidth, resolveHeight, 0, RenderTextureFormat.ARGBHalf);
+            RenderTexture resolvePass = CreateTempBuffer(resolveWidth, resolveHeight, 0, RenderTextureFormat.DefaultHDR);
 
             if (useMipMap)
             {
+                dirX[0] = new Vector2(width, 0.0f);
+                dirX[1] = new Vector2(dirX[0].x / 4.0f, 0.0f);
+                dirX[2] = new Vector2(dirX[1].x / 2.0f, 0.0f);
+                dirX[3] = new Vector2(dirX[2].x / 2.0f, 0.0f);
+                dirX[4] = new Vector2(dirX[3].x / 2.0f, 0.0f);
+
+
+                dirY[0] = new Vector2(0.0f, height);
+                dirY[1] = new Vector2(0.0f, dirY[0].y / 4.0f);
+                dirY[2] = new Vector2(0.0f, dirY[1].y / 2.0f);
+                dirY[3] = new Vector2(0.0f, dirY[2].y / 2.0f);
+                dirY[4] = new Vector2(0.0f, dirY[3].y / 2.0f);
+
                 rendererMaterial.SetInt("_MaxMipMap", maxMipMap);
 
                 Graphics.Blit(mainBuffer0, mipMapBuffer0); // Copy the source frame buffer to the mip map buffer
 
                 for (int i = 0; i < maxMipMap; i++)
                 {
-                    rendererMaterial.SetVector("_GaussianDir", dist[i] * new Vector2(1.0f, 0.0f));
+                    rendererMaterial.SetVector("_GaussianDir", new Vector2(1.0f / dirX[i].x, 0.0f));
                     rendererMaterial.SetInt("_MipMapCount", mipLevel[i]);
                     Graphics.Blit(mipMapBuffer0, mipMapBuffer1, rendererMaterial, 6);
 
-                    rendererMaterial.SetVector("_GaussianDir", dist[i] * new Vector2(0.0f, 1.0f));
+                    rendererMaterial.SetVector("_GaussianDir", new Vector2(0.0f, 1.0f / dirY[i].y));
                     rendererMaterial.SetInt("_MipMapCount", mipLevel[i]);
                     Graphics.Blit(mipMapBuffer1, mipMapBuffer0, rendererMaterial, 6);
 
@@ -454,11 +535,11 @@ namespace cCharkes
             if (useTemporal && Application.isPlaying)
             {
                 rendererMaterial.SetFloat("_TScale", scale);
-                rendererMaterial.SetFloat("_TResponse", response); 
+                rendererMaterial.SetFloat("_TResponse", response);
                 rendererMaterial.SetFloat("_TMinResponse", minResponse);
                 rendererMaterial.SetFloat("_TMaxResponse", maxResponse);
 
-                RenderTexture temporalBuffer0 = CreateTempBuffer(width, height, 0, RenderTextureFormat.ARGBHalf);
+                RenderTexture temporalBuffer0 = CreateTempBuffer(width, height, 0, RenderTextureFormat.DefaultHDR);
 
                 rendererMaterial.SetTexture("_PreviousBuffer", temporalBuffer);
 
@@ -471,7 +552,7 @@ namespace cCharkes
                 ReleaseTempBuffer(temporalBuffer0);
             }
 
-            switch(debugPass)
+            switch (debugPass)
             {
                 case SSRDebugPass.Reflection:
                 case SSRDebugPass.Cubemap:
@@ -498,7 +579,7 @@ namespace cCharkes
             prevViewProjectionMatrix = viewProjectionMatrix;
         }
 
-        public void DrawFullScreenQuad()
+        private void DrawFullScreenQuad()
         {
             GL.PushMatrix();
             GL.LoadOrtho();

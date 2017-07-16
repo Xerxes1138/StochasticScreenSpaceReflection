@@ -20,95 +20,72 @@
 //OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 //SOFTWARE.
 
-/*float4 RayMarch(sampler2D tex, float4x4 _ProjectionMatrix, float3 viewDir, int NumSteps, float3 viewPos, float3 screenPos, float2 uv, float stepSize)
+float4 RayMarch(sampler2D tex, float4x4 _ProjectionMatrix, float3 viewDir, int NumSteps, float3 viewPos, float3 screenPos, float2 screenUV, float stepSize, float thickness)
 {
-	float depth = LinearEyeDepth(UNITY_SAMPLE_DEPTH(tex2D(tex, uv)));
+	//float3 dirProject = _Project;
+	float4 dirProject = float4
+	(
+		abs(unity_CameraProjection._m00 * 0.5), 
+		abs(unity_CameraProjection._m11 * 0.5), 
+		((_ProjectionParams.z * _ProjectionParams.y) / (_ProjectionParams.y - _ProjectionParams.z)) * 0.5,
+		0.0
+	);
 
-	float4 rayProj = mul (_ProjectionMatrix, float4(viewDir + viewPos, 1.0f));
+	float linearDepth  =  LinearEyeDepth(tex2D(tex, screenUV.xy));
 
-	float3 rayDir = normalize( rayProj.xyz / rayProj.w - screenPos );
-	rayDir.xy *= 0.5f;
+	/*float4 rayProj = mul (_ProjectionMatrix, float4(viewDir + viewPos, 1.0f));
+	float3 rayDir = normalize( rayProj.xyz / rayProj.w - screenPos);
+	rayDir.xy *= 0.5;*/
 
-	//float3 rayDir = float3(viewDir.xy - viewPos.xy / viewPos.z * viewDir.z, viewDir.z / viewPos.z) * _Project;
 
-	float sampleMask = 0.0f;
+	float3 ray = viewPos / viewPos.z;
+	float3 rayDir = normalize(float3(viewDir.xy - ray * viewDir.z, viewDir.z / linearDepth) * dirProject);
+	rayDir.xy *= 0.5;
 
-	float3 rayStart = float3(uv, screenPos.z);
+	float3 rayStart = float3(screenPos.xy * 0.5 + 0.5,  screenPos.z);
 
-    float3 project = _Project;
+	float3 samplePos = rayStart;
 
-	float3 samplePos = rayStart + rayDir * stepSize;
+	float project = ( _ProjectionParams.z * _ProjectionParams.y) / (_ProjectionParams.y - _ProjectionParams.z); 
 
-	float mask = 0;
+	//float thickness = thickness;//1.0 / _ZBufferParams.x * (float)NumSteps * linearDepth;//project / linearDepth;
+
+	float mask = 0.0;
+
+	float oldDepth = samplePos.z;
+	float oldDelta = 0.0;
+	float3 oldSamplePos = samplePos;
+
+	UNITY_LOOP
 	for (int i = 0;  i < NumSteps; i++)
 	{
-		float sampleDepth  = (UNITY_SAMPLE_DEPTH(tex2Dlod (tex, float4(samplePos.xy,0,0))));
-				
-		//float thickness = (project.z) / depth;
-		float delta = (samplePos.z) - sampleDepth;
+		float depth = GetDepth (tex, samplePos.xy);
+		float delta = samplePos.z - depth;
+		//float thickness = dirProject.z / depth;
 
-		if ( sampleDepth < (samplePos.z) )
-		{  
-			mask = 1; //TO FIX !!!
-			break;
-		}
-		else
-			samplePos += rayDir * stepSize;
-		
-	}
-	return float4(samplePos, mask);
-}*/
-
-float4 RayMarch(sampler2D tex, float4x4 _ProjectionMatrix, float3 viewDir, int NumSteps, float3 viewPos, float3 screenPos, float2 uv, float stepSize)
-{
-	float depth = LinearEyeDepth(UNITY_SAMPLE_DEPTH(tex2D(tex, uv)));
-
-	float4 rayProj = mul (_ProjectionMatrix, float4(viewDir + viewPos, 1.0f));
-
-	float3 rayDir = normalize( rayProj.xyz / rayProj.w - screenPos );
-	rayDir.xy *= 0.5f;
-
-	//float3 rayDir = float3(viewDir.xy - viewPos.xy / viewPos.z * viewDir.z, viewDir.z / viewPos.z) * _Project;
-
-	float sampleMask = 0.0f;
-
-	float3 rayStart = float3(uv, screenPos.z);
-
-    float3 project = _Project;
-
-	float3 samplePos = rayStart + rayDir * stepSize;
-
-	float mask = 0;
-	for (int i = 0;  i < NumSteps; i++)
-	{
-		float sampleDepth  = LinearEyeDepth(UNITY_SAMPLE_DEPTH(tex2Dlod (tex, float4(samplePos.xy,0,0))));
-				
-		float thickness = 0.1; //LinearEyeDepth(project.z) / depth;
-		float delta = LinearEyeDepth(samplePos.z) - sampleDepth;
-
-		if ( sampleDepth < LinearEyeDepth(samplePos.z) )
-		//if ( 0.0 < delta && delta < thickness )  
-		{  
-				
-			//float thickness = LinearEyeDepth(project.z) / depth;
-			//float delta = LinearEyeDepth(samplePos.z) - sampleDepth;
-			//if (abs(sampleDepth - LinearEyeDepth(samplePos.z) ) < 0.3)
-			if (0.0 < delta && delta < thickness)
-			{
-				mask = 1;
-				break;
-			}
-			else
-			{
-				rayDir *= 0.5;
-				samplePos = rayStart + rayDir * stepSize; 
-			} 
+		if (0.0 < delta)
+		{
+				if(delta /*< thickness*/)
+				{
+					mask = 1.0;
+					break;
+					//samplePos = samplePos;
+				}
+				/*if(depth - oldDepth > thickness)
+				{
+					float blend = (oldDelta - delta) / max(oldDelta, delta) * 0.5 + 0.5;
+					samplePos = lerp(oldSamplePos, samplePos, blend);
+					mask = lerp(0.0, 1.0, blend);
+				}*/
 		}
 		else
 		{
-		        rayStart = samplePos;
-		        samplePos += rayDir * stepSize;
+			oldDelta = -delta;
+			oldSamplePos = samplePos;
 		}
+		oldDepth = depth; 
+		samplePos += rayDir * stepSize;
 	}
+	
 	return float4(samplePos, mask);
 }

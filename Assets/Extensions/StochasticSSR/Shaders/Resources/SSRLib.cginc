@@ -48,10 +48,13 @@ uniform	float4		_ResolveSize;
 uniform	float4		_NoiseSize;
 uniform float4		_Project;
 uniform float4		_GaussianDir;
+uniform float4		_JitterSizeAndOffset; // x = jitter width / screen width, y = jitter height / screen height, z = random offset, w = random offset
+
 uniform float		_EdgeFactor; 
 uniform float		_SmoothnessRange;
 uniform float		_BRDFBias;
 
+uniform float		_Thickness;
 uniform float		_TScale;
 uniform float		_TMinResponse;
 uniform float		_TMaxResponse;
@@ -119,19 +122,24 @@ float3 GetViewNormal (float3 normal)
 	return normalize(viewNormal);
 }
 
-float GetDepth (sampler2D tex, float2 uv)
+/*float GetDepth (sampler2D tex, float2 uv)
 {
 	return UNITY_SAMPLE_DEPTH (tex2Dlod(tex, float4(uv, 0, 0)));
-}
+}*/
 
-float GetDepth (sampler2D tex, float2 uv, float mip)
+
+float GetDepth (sampler2D tex, float2 uv)
 {
-	return tex2Dlod(tex, float4(uv, 0, mip));
+	float z = tex2Dlod(_CameraDepthTexture, float4(uv,0,0));
+	#if defined(UNITY_REVERSED_Z)
+		z = 1.0f - z;
+	#endif
+	return z;
 }
 
 float3 GetScreenPos (float2 uv, float depth)
 {
-	return float3(uv.x * 2 - 1, uv.y * 2 - 1, depth);
+	return float3(uv.xy * 2 - 1, depth);
 }
 
 float3 GetWorlPos (float3 screenPos)
