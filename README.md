@@ -13,7 +13,7 @@
 
 # Requirements
 
-Unity 5.4 and a shader model 3.0 ( dx9 ) graphic card.
+Unity 2017.1 and a shader model 5.0 ( dx11 ) graphic card.
 
 # How to use
 
