@@ -195,22 +195,17 @@ float RayAttenBorder (float2 pos, float value)
 
 inline half2 CalculateMotion(float rawDepth, float2 inUV)
 {
-    /*float depth = Linear01Depth(rawDepth);
-    float3 ray = GetViewRayFromUv(inUV);
-    float3 vPos = ray * depth;
-    float4 worldPos = mul(_CameraToWorldMatrix, float4(vPos, 1.0));*/
+	float3 screenPos = GetScreenPos(inUV, rawDepth);
+	float4 worldPos = float4(GetWorlPos(screenPos),1);
 
-    float3 screenPos = GetScreenPos(inUV, rawDepth);
-    float4 worldPos = float4(GetWorlPos(screenPos),1);
+	float4 prevClipPos = mul(_PrevViewProjectionMatrix, worldPos);
+	float4 curClipPos = mul(_ViewProjectionMatrix, worldPos);
 
-    float4 prevClipPos = mul(_PrevViewProjectionMatrix, worldPos);
-    float4 curClipPos = mul(_ViewProjectionMatrix, worldPos);
+	float2 prevHPos = prevClipPos.xy / prevClipPos.w;
+	float2 curHPos = curClipPos.xy / curClipPos.w;
 
-    float2 prevHPos = prevClipPos.xy / prevClipPos.w;
-    float2 curHPos = curClipPos.xy / curClipPos.w;
-
-            // V is the viewport position at this pixel in the range 0 to 1.
-    float2 vPosPrev = (prevHPos.xy + 1.0f) / 2.0f;
-    float2 vPosCur = (curHPos.xy + 1.0f) / 2.0f;
-    return vPosCur - vPosPrev;
+	// V is the viewport position at this pixel in the range 0 to 1.
+	float2 vPosPrev = (prevHPos.xy + 1.0f) / 2.0f;
+	float2 vPosCur = (curHPos.xy + 1.0f) / 2.0f;
+	return vPosCur - vPosPrev;
 }
