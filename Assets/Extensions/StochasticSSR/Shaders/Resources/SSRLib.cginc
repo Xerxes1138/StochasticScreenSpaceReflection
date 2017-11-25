@@ -64,6 +64,7 @@ uniform float		_Accumulation;
 uniform int			_NumSteps;
 uniform int			_RayReuse;
 uniform int			_MipMapCount;
+uniform int			_ReflectionVelocity;
 
 uniform float4x4	_ProjectionMatrix;
 uniform float4x4	_ViewProjectionMatrix;
@@ -73,6 +74,7 @@ uniform float4x4	_WorldToCameraMatrix;
 uniform float4x4	_CameraToWorldMatrix;
 
 uniform float4x4	_PrevInverseViewProjectionMatrix;
+uniform float4x4	_PrevViewProjectionMatrix;
 
 //Debug Options
 uniform int			_UseTemporal;
@@ -142,6 +144,15 @@ float3 GetScreenPos (float2 uv, float depth)
 	return float3(uv.xy * 2 - 1, depth);
 }
 
+float3 GetViewRayFromUv(float2 uv)
+{
+	float4 _CamScreenDir = float4(1.0 / _ProjectionMatrix[0][0], 1.0 / _ProjectionMatrix[1][1], 1, 1);
+	float3 ray = float3(uv.x * 2 - 1, uv.y * 2 - 1, 1);
+	ray *= _CamScreenDir.xyz;
+	ray = ray * (_ProjectionParams.z / ray.z);
+	return ray;
+}
+
 float3 GetWorlPos (float3 screenPos)
 {
 	float4 worldPos = mul(_InverseViewProjectionMatrix, float4(screenPos, 1));
@@ -180,4 +191,26 @@ float RayAttenBorder (float2 pos, float value)
 {
 	float borderDist = min(1.0 - max(pos.x, pos.y), min(pos.x, pos.y));
 	return saturate(borderDist > value ? 1.0 : borderDist / value);
+}
+
+inline half2 CalculateMotion(float rawDepth, float2 inUV)
+{
+    /*float depth = Linear01Depth(rawDepth);
+    float3 ray = GetViewRayFromUv(inUV);
+    float3 vPos = ray * depth;
+    float4 worldPos = mul(_CameraToWorldMatrix, float4(vPos, 1.0));*/
+
+    float3 screenPos = GetScreenPos(inUV, rawDepth);
+    float4 worldPos = float4(GetWorlPos(screenPos),1);
+
+    float4 prevClipPos = mul(_PrevViewProjectionMatrix, worldPos);
+    float4 curClipPos = mul(_ViewProjectionMatrix, worldPos);
+
+    float2 prevHPos = prevClipPos.xy / prevClipPos.w;
+    float2 curHPos = curClipPos.xy / curClipPos.w;
+
+            // V is the viewport position at this pixel in the range 0 to 1.
+    float2 vPosPrev = (prevHPos.xy + 1.0f) / 2.0f;
+    float2 vPosCur = (curHPos.xy + 1.0f) / 2.0f;
+    return vPosCur - vPosPrev;
 }

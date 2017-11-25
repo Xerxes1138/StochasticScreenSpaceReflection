@@ -107,7 +107,7 @@ namespace cCharkes
         [SerializeField]
         bool useTemporal = true;
 
-        [SerializeField]
+		[SerializeField]
         float scale = 2.0f;
 
         [Range(0.0f, 1.0f)]
@@ -122,7 +122,10 @@ namespace cCharkes
         //[SerializeField]
         float maxResponse = 0.95f;
 
-        [Header("General")]
+	    [SerializeField, Tooltip("Use Unity's Motion Vectors (May cause smudging)")]
+	    bool useUnityMotion;
+
+		[Header("General")]
         [SerializeField]
         bool useFresnel = true;
 
@@ -290,7 +293,12 @@ namespace cCharkes
             else if (useTemporal && Application.isPlaying)
                 rendererMaterial.SetInt("_UseTemporal", 1);
 
-            if (!reduceFireflies)
+	        if (!useUnityMotion)
+		        rendererMaterial.SetInt("_ReflectionVelocity", 1);
+	        else if (useTemporal)
+		        rendererMaterial.SetInt("_ReflectionVelocity", 0);
+
+			if (!reduceFireflies)
                 rendererMaterial.SetInt("_Fireflies", 0);
             else
                 rendererMaterial.SetInt("_Fireflies", 1);
