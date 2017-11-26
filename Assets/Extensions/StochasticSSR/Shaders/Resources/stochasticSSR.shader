@@ -91,8 +91,17 @@ Shader "Hidden/Stochastic SSR"
 
 		float depth = GetDepth(_CameraDepthTexture, uv);
 		float3 screenPos = GetScreenPos(uv, depth);
-		float2 velocity = GetVelocity(uv); // 5.4 motion vector
-		float2 hitPacked = tex2Dlod(_RayCast, float4(uv, 0.0, 0.0));
+		float3 hitPacked = tex2Dlod(_RayCast, float4(uv, 0.0, 0.0));
+
+		float2 velocity;
+		if(_ReflectionVelocity == 1)
+		{
+			#if defined(UNITY_REVERSED_Z)
+			hitPacked.z = 1.0f - hitPacked.z;
+			#endif
+			velocity = CalculateMotion(hitPacked.z,uv); // Reflection Depth derived motion. Removes smudghing cause by screen motion vectors.
+		}else
+			velocity = GetVelocity(uv); // 5.4 motion vector
 
 		float2 averageDepthMin = min(hitPacked, velocity);
 		float2 averageDepthMax = max(hitPacked, velocity);
