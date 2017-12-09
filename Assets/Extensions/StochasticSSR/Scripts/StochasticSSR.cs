@@ -337,10 +337,6 @@ namespace cCharkes
             worldToCameraMatrix = m_camera.worldToCameraMatrix;
             cameraToWorldMatrix = worldToCameraMatrix.inverse;
 
-#if UNITY_5_4_OR_NEWER
-            m_camera.nonJitteredProjectionMatrix = GL.GetGPUProjectionMatrix(m_camera.projectionMatrix, false);
-#endif
-
             projectionMatrix = GL.GetGPUProjectionMatrix(m_camera.projectionMatrix, false);
 
             viewProjectionMatrix = projectionMatrix * worldToCameraMatrix;
