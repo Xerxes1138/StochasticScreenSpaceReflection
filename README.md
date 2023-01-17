@@ -1,6 +1,6 @@
 # StochasticScreenSpaceReflection
 
-![SSSR](https://dl.dropboxusercontent.com/u/1812933/Unity/SSSR.png)
+![SSSR](https://github.com/Xerxes1138/StochasticScreenSpaceReflection/blob/master/SSSR.png)
 
 # Features
 
